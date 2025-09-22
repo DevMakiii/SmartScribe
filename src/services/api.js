@@ -6,10 +6,10 @@ import { isTokenExpired } from '../utils/authUtils'
 console.log('🔧 API Configuration:')
 console.log('  - NODE_ENV:', process.env.NODE_ENV)
 console.log('  - VUE_APP_API_BASE_URL:', process.env.VUE_APP_API_BASE_URL || 'NOT SET')
-console.log('  - Computed baseURL:', process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/SmartScribe/api/')
+console.log('  - Computed baseURL:', process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/api/')
 
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/SmartScribe/api/',
+  baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/api/',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -84,72 +84,47 @@ api.interceptors.response.use(
 export default {
   // Auth
   login(credentials) {
-    return api.post('?resource=auth&action=login', JSON.stringify(credentials), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.post('/auth?action=login', credentials)
   },
   googleLogin(accessToken) {
-    return api.post('?resource=auth&action=google', JSON.stringify({ access_token: accessToken }), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.post('/auth?action=google', { access_token: accessToken })
   },
   requestPasswordReset(email) {
-    const formData = new FormData()
-    formData.append('email', email)
-    return api.post('?resource=auth&action=request-password-reset', formData)
+    return api.post('/auth?action=requestPasswordReset', { email })
   },
   resetPassword(token, newPassword) {
-    const formData = new FormData()
-    formData.append('token', token)
-    formData.append('password', newPassword)
-    return api.post('?resource=auth&action=reset-password', formData)
+    return api.post('/auth?action=resetPassword', { token, password: newPassword })
   },
   validateResetToken(token) {
-    return api.get(`?resource=auth&action=validate-reset-token&token=${encodeURIComponent(token)}`)
+    return api.get(`/auth?action=validateResetToken&token=${encodeURIComponent(token)}`)
   },
   register(userData) {
-    return api.post('?resource=auth&action=register', JSON.stringify(userData), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.post('/auth?action=register', userData)
   },
   logout() {
-    return api.post('?resource=auth&action=logout')
+    return api.post('/auth?action=logout')
   },
   updatePassword(passwordData) {
-    return api.put('?resource=auth&action=update-password', JSON.stringify(passwordData), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.put('/auth?action=updatePassword', passwordData)
   },
   getUser() {
-    return api.get('?resource=auth&action=profile')
+    return api.get('/auth?action=profile')
   },
   updateProfile(profileData) {
-    return api.put('?resource=auth&action=profile', JSON.stringify(profileData), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.put('/auth?action=updateProfile', profileData)
   },
   uploadProfilePicture(formData) {
-    return api.post('?resource=auth&action=upload-profile-picture', formData)
+    return api.post('/auth?action=uploadProfilePicture', formData)
   },
   deleteAccount() {
-    return api.delete('?resource=auth&action=delete-account')
+    return api.delete('/auth?action=deleteAccount')
   },
   
   // Notes
   getNotes() {
     // Add cache-busting parameter to prevent browser caching
     const cacheBust = Date.now();
-    return api.get(`?resource=notes&_t=${cacheBust}`, {
+    return api.get(`/notes?_t=${cacheBust}`, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -157,7 +132,7 @@ export default {
     })
   },
   getNote(id) {
-    return api.get(`?resource=notes&id=${id}`)
+    return api.get(`/notes?id=${id}`)
   },
   createNote(noteData) {
     // If there's an image file, we need to send FormData
@@ -168,10 +143,10 @@ export default {
       formData.append('image', noteData.image)
 
       // Don't manually set Content-Type for FormData - let axios handle it
-      return api.post('?resource=notes', formData)
+      return api.post('/notes', formData)
     } else {
       // For text-only notes, send as JSON
-      return api.post('?resource=notes', {
+      return api.post('/notes', {
         title: noteData.title,
         text: noteData.text
       })
@@ -199,7 +174,7 @@ export default {
     }
 
     // Add cache-busting headers
-    return api.post(`?resource=notes&id=${id}`, formData, {
+    return api.post(`/notes?id=${id}`, formData, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -207,86 +182,82 @@ export default {
     })
   },
   deleteNote(id) {
-    return api.delete(`?resource=notes&id=${id}`)
+    return api.delete(`/notes?id=${id}`)
   },
   
   // OCR
   ocr: {
     processImage(formData) {
-      return api.post('?resource=ocr&action=processImage', formData)
+      return api.post('/ocr?action=processImage', formData)
     }
   },
-  
+
   // Summaries
   generateSummary(noteId, options) {
-    return api.post(`?resource=summaries&action=generate&note_id=${noteId}`, options)
+    return api.post(`/summaries?action=generate&note_id=${noteId}`, options)
   },
 
   // Summaries
   getSummaries() {
-    return api.get('?resource=summaries')
+    return api.get('/summaries')
   },
   getSummary(id) {
-    return api.get(`?resource=summaries&id=${id}`)
+    return api.get(`/summaries?id=${id}`)
   },
   createSummary(noteId, options) {
-    return api.post('?resource=summaries', { note_id: noteId, format: 'paragraph', ...options })
+    return api.post('/summaries', { note_id: noteId, format: 'paragraph', ...options })
   },
 
   // Progress
   getProgressStats() {
-    return api.get('?resource=progress&action=stats')
+    return api.get('/progress?action=stats')
   },
   progress: {
     startStudySession(sessionData) {
-      return api.post('?resource=progress&action=startStudySession', sessionData)
+      return api.post('/progress?action=startStudySession', sessionData)
     },
     endStudySession(sessionData) {
-      return api.post('?resource=progress&action=endStudySession', sessionData)
+      return api.post('/progress?action=endStudySession', sessionData)
     },
     getStats() {
-      return api.get('?resource=progress&action=stats')
+      return api.get('/progress?action=stats')
     }
   },
 
   // Dashboard
   getDashboardStats() {
-    return api.get('?resource=dashboard&action=stats')
+    return api.get('/dashboard?action=stats')
   },
 
   // Settings
   getSettings() {
-    return api.get('?resource=settings')
+    return api.get('/settings')
   },
   updateSettings(settings) {
     // Explicitly stringify the data to ensure proper JSON format
-    return api.put('?resource=settings', JSON.stringify(settings), {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    })
+    return api.put('/settings', settings)
   },
 
   // GPT AI Services
   gpt: {
     generateSummary(text, options = { length: 'medium' }) {
-      return api.post('?resource=gpt&action=generateSummary', { text, ...options })
+      return api.post('/gpt?action=generateSummary', { text, ...options })
     },
     generateQuiz(text, options = { difficulty: 'medium', questionCount: 5 }) {
-      return api.post('?resource=gpt&action=generateQuiz', { text, ...options })
+      return api.post('/gpt?action=generateQuiz', { text, ...options })
     },
     extractKeywords(text, count = 5) {
-      return api.post('?resource=gpt&action=extractKeywords', { text, count })
+      return api.post('/gpt?action=extractKeywords', { text, count })
     }
   },
 
   // Quizzes
   getQuizzes() {
-    return api.get('?resource=quizzes')
+    return api.get('/quizzes')
   },
   getQuiz(id) {
     console.log('🔄 API getQuiz: Starting with quizId:', id)
-    const result = api.get(`?resource=quizzes&id=${id}`)
+    const result = api.get(`/quizzes?id=${id}`)
     console.log('🔄 API getQuiz: Request promise created')
     return result
   },
@@ -295,54 +266,54 @@ export default {
     console.log('🔄 API createQuiz: Options:', options)
     const requestData = { note_id: noteId, ...options }
     console.log('🔄 API createQuiz: Full request data:', requestData)
-    const result = api.post('?resource=quizzes', requestData)
+    const result = api.post('/quizzes', requestData)
     console.log('🔄 API createQuiz: Request promise created')
     return result
   },
   updateQuiz(id, data) {
-    return api.put(`?resource=quizzes&id=${id}`, data)
+    return api.put(`/quizzes?id=${id}`, data)
   },
   deleteQuiz(id) {
-    return api.delete(`?resource=quizzes&id=${id}`)
+    return api.delete(`/quizzes?id=${id}`)
   },
   generateQuiz(noteId, options) {
-    return api.post(`?resource=quizzes&action=generate&note_id=${noteId}`, options)
+    return api.post(`/quizzes?action=generate&note_id=${noteId}`, options)
   },
   saveQuiz(quizData) {
-    return api.post('?resource=quizzes', quizData)
+    return api.post('/quizzes', quizData)
   },
 
   // Export
   exportNote(noteId, format) {
-    return api.get(`?resource=export&id=${noteId}&format=${format}`, {
+    return api.get(`/export?id=${noteId}&format=${format}`, {
       responseType: 'blob' // Important for file downloads
     })
   },
 
   // Study Sessions
   startStudySession(sessionData) {
-    return api.post('?resource=study-sessions&action=start', sessionData)
+    return api.post('/study-sessions?action=start', sessionData)
   },
   endStudySession(sessionData) {
-    return api.post('?resource=study-sessions&action=end', sessionData)
+    return api.post('/study-sessions?action=end', sessionData)
   },
   updateStudySessionActivity(sessionData) {
-    return api.post('?resource=study-sessions&action=update-activity', sessionData)
+    return api.post('/study-sessions?action=update-activity', sessionData)
   },
   getActiveStudySession() {
-    return api.get('?resource=study-sessions&action=active')
+    return api.get('/study-sessions?action=active')
   },
   getStudySessionStats(startDate = null, endDate = null) {
-    let url = '?resource=study-sessions&action=stats'
+    let url = '/study-sessions?action=stats'
     if (startDate) url += `&start_date=${startDate}`
     if (endDate) url += `&end_date=${endDate}`
     return api.get(url)
   },
   getDailyStudyStats(startDate, endDate) {
-    return api.get(`?resource=study-sessions&action=daily-stats&start_date=${startDate}&end_date=${endDate}`)
+    return api.get(`/study-sessions?action=daily-stats&start_date=${startDate}&end_date=${endDate}`)
   },
   getStudyStreak() {
-    return api.get('?resource=study-sessions&action=streak')
+    return api.get('/study-sessions?action=streak')
   },
 
   // Generic methods for resources that don't have specific methods yet

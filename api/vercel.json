@@ -1,0 +1,106 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "auth.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "notes.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "quizzes.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "goals.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "progress.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "study-sessions.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "summaries.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "settings.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "dashboard.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "export.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "gpt.js",
+      "use": "@vercel/node"
+    },
+    {
+      "src": "ocr.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/auth",
+      "dest": "/auth.js"
+    },
+    {
+      "src": "/api/notes",
+      "dest": "/notes.js"
+    },
+    {
+      "src": "/api/quizzes",
+      "dest": "/quizzes.js"
+    },
+    {
+      "src": "/api/goals",
+      "dest": "/goals.js"
+    },
+    {
+      "src": "/api/progress",
+      "dest": "/progress.js"
+    },
+    {
+      "src": "/api/study-sessions",
+      "dest": "/study-sessions.js"
+    },
+    {
+      "src": "/api/summaries",
+      "dest": "/summaries.js"
+    },
+    {
+      "src": "/api/settings",
+      "dest": "/settings.js"
+    },
+    {
+      "src": "/api/dashboard",
+      "dest": "/dashboard.js"
+    },
+    {
+      "src": "/api/export",
+      "dest": "/export.js"
+    },
+    {
+      "src": "/api/gpt",
+      "dest": "/gpt.js"
+    },
+    {
+      "src": "/api/ocr",
+      "dest": "/ocr.js"
+    }
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
+}
