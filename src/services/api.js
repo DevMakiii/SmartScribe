@@ -12,7 +12,7 @@ console.log('  - Current location:', window.location.href)
 console.log('  - Current origin:', window.location.origin)
 
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/api/',
+  baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : 'http://localhost:8000/',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -154,7 +154,7 @@ export default {
     console.log('🔄 API Register: Starting registration request');
     console.log('🔄 API Register: User data:', userData);
 
-    // Debug logging to identify the issue
+    // Enhanced debug logging to identify the 404 issue
     console.log('🔄 API Register: Debug - this object:', this);
     console.log('🔄 API Register: Debug - this.defaults:', this.defaults);
     console.log('🔄 API Register: Debug - api object:', api);
@@ -172,14 +172,39 @@ export default {
       throw new Error('API configuration error: baseURL is undefined');
     }
 
+    // Test the exact URL that will be called
+    const testUrl = baseURL + '/auth?action=register';
+    console.log('🔄 API Register: Testing URL format:', testUrl);
+    console.log('🔄 API Register: Current window location:', window.location.href);
+    console.log('🔄 API Register: Current NODE_ENV:', process.env.NODE_ENV);
+
+    // Try both URL formats to see which one works
+    console.log('🔄 API Register: Attempting request to:', '/auth?action=register');
+    console.log('🔄 API Register: This should resolve to:', testUrl);
+
     const request = api.post('/auth?action=register', userData);
 
     request.then(response => {
       console.log('✅ API Register: Success response:', response);
+      console.log('✅ API Register: Success status:', response.status);
+      console.log('✅ API Register: Success data:', response.data);
     }).catch(error => {
       console.error('❌ API Register: Error response:', error);
       console.error('❌ API Register: Error config:', error.config);
       console.error('❌ API Register: Error response data:', error.response?.data);
+      console.error('❌ API Register: Error response status:', error.response?.status);
+      console.error('❌ API Register: Error request details:', error.request);
+      console.error('❌ API Register: Full error object:', error);
+
+      // Additional debugging for 404 errors
+      if (error.response?.status === 404) {
+        console.error('🚨 API Register: 404 ERROR DETECTED!');
+        console.error('🚨 API Register: This means the endpoint was not found');
+        console.error('🚨 API Register: Expected URL format: /api/?resource=auth&action=register');
+        console.error('🚨 API Register: Actual URL attempted:', error.config?.url);
+        console.error('🚨 API Register: Base URL used:', error.config?.baseURL);
+        console.error('🚨 API Register: Full URL attempted:', error.config?.baseURL + error.config?.url);
+      }
     });
 
     return request;
