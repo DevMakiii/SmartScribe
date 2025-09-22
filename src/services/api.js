@@ -92,7 +92,7 @@ export default {
   testConnection() {
     console.log('🧪 Testing API connection...');
     console.log('  - Current environment:', process.env.NODE_ENV);
-    console.log('  - Base URL being used:', this.defaults.baseURL);
+    console.log('  - Base URL being used:', api.defaults?.baseURL || 'undefined');
     console.log('  - Testing with simple request to /auth?action=profile');
 
     return api.get('/auth?action=profile')
@@ -153,7 +153,24 @@ export default {
   register(userData) {
     console.log('🔄 API Register: Starting registration request');
     console.log('🔄 API Register: User data:', userData);
-    console.log('🔄 API Register: Full URL will be:', this.defaults.baseURL + '/auth?action=register');
+
+    // Debug logging to identify the issue
+    console.log('🔄 API Register: Debug - this object:', this);
+    console.log('🔄 API Register: Debug - this.defaults:', this.defaults);
+    console.log('🔄 API Register: Debug - api object:', api);
+    console.log('🔄 API Register: Debug - api.defaults:', api.defaults);
+    console.log('🔄 API Register: Debug - api.defaults.baseURL:', api.defaults?.baseURL);
+
+    // Use the correct reference to avoid undefined error
+    const baseURL = api.defaults?.baseURL || 'undefined';
+    console.log('🔄 API Register: Full URL will be:', baseURL + '/auth?action=register');
+
+    // Fix the undefined baseURL issue by using the correct reference
+    if (!api.defaults?.baseURL) {
+      console.error('❌ API Register: CRITICAL - api.defaults.baseURL is undefined!');
+      console.error('❌ API Register: This suggests the axios instance is not properly configured');
+      throw new Error('API configuration error: baseURL is undefined');
+    }
 
     const request = api.post('/auth?action=register', userData);
 
