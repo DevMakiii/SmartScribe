@@ -7,6 +7,9 @@ console.log('🔧 API Configuration:')
 console.log('  - NODE_ENV:', process.env.NODE_ENV)
 console.log('  - VUE_APP_API_BASE_URL:', process.env.VUE_APP_API_BASE_URL || 'NOT SET')
 console.log('  - Computed baseURL:', process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/api/')
+console.log('  - All VUE_APP_* env vars:', Object.keys(process.env).filter(key => key.startsWith('VUE_APP_')).reduce((acc, key) => ({ ...acc, [key]: process.env[key] }), {}))
+console.log('  - Current location:', window.location.href)
+console.log('  - Current origin:', window.location.origin)
 
 const api = axios.create({
   baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/api/',
@@ -48,10 +51,13 @@ api.interceptors.request.use(config => {
   console.log('🔄 API Request Details:')
   console.log('  - Environment:', process.env.NODE_ENV)
   console.log('  - Base URL:', config.baseURL)
+  console.log('  - Request URL:', config.url)
   console.log('  - Full URL:', config.baseURL + config.url)
   console.log('  - Method:', config.method)
   console.log('  - Headers:', config.headers)
   console.log('  - VUE_APP_API_BASE_URL:', process.env.VUE_APP_API_BASE_URL || 'NOT SET')
+  console.log('  - Current page URL:', window.location.href)
+  console.log('  - Request timestamp:', new Date().toISOString())
 
   return config
 })
@@ -82,6 +88,52 @@ api.interceptors.response.use(
 )
 
 export default {
+  // Test method to check API connectivity
+  testConnection() {
+    console.log('🧪 Testing API connection...');
+    console.log('  - Current environment:', process.env.NODE_ENV);
+    console.log('  - Base URL being used:', this.defaults.baseURL);
+    console.log('  - Testing with simple request to /auth?action=profile');
+
+    return api.get('/auth?action=profile')
+      .then(response => {
+        console.log('✅ API connection test successful:', response);
+        return response;
+      })
+      .catch(error => {
+        console.error('❌ API connection test failed:', error);
+        console.error('  - Error status:', error.response?.status);
+        console.error('  - Error data:', error.response?.data);
+        console.error('  - Full error:', error);
+        return error;
+      });
+  },
+
+  // Test different API endpoints to identify the issue
+  testEndpoints() {
+    console.log('🧪 Testing different API endpoints...');
+
+    const endpoints = [
+      '/auth?action=profile',
+      '/notes',
+      '/dashboard?action=stats'
+    ];
+
+    const testPromises = endpoints.map((endpoint, index) => {
+      console.log(`  - Testing endpoint ${index + 1}: ${endpoint}`);
+      return api.get(endpoint)
+        .then(response => {
+          console.log(`  ✅ Endpoint ${endpoint} successful:`, response.status);
+          return { endpoint, success: true, status: response.status };
+        })
+        .catch(error => {
+          console.log(`  ❌ Endpoint ${endpoint} failed:`, error.response?.status || 'Network Error');
+          return { endpoint, success: false, status: error.response?.status, error: error.message };
+        });
+    });
+
+    return Promise.all(testPromises);
+  },
   // Auth
   login(credentials) {
     return api.post('/auth?action=login', credentials)
