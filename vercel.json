@@ -12,11 +12,11 @@
   "routes": [
     {
       "src": "/SmartScribe/api/(.*)",
-      "dest": "https://your-backend-service.com/api/index.php?$1"
+      "dest": "$API_BASE_URL/api/index.php?$1"
     },
     {
       "src": "/api/(.*)",
-      "dest": "https://your-backend-service.com/api/index.php?$1"
+      "dest": "$API_BASE_URL/api/index.php?$1"
     },
     {
       "src": "/(.*)",

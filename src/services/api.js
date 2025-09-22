@@ -2,8 +2,14 @@
 import axios from 'axios'
 import { isTokenExpired } from '../utils/authUtils'
 
+// Log API configuration on module load
+console.log('🔧 API Configuration:')
+console.log('  - NODE_ENV:', process.env.NODE_ENV)
+console.log('  - VUE_APP_API_BASE_URL:', process.env.VUE_APP_API_BASE_URL || 'NOT SET')
+console.log('  - Computed baseURL:', process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/SmartScribe/api/')
+
 const api = axios.create({
-  baseURL: process.env.NODE_ENV === 'production' ? '/' : '/SmartScribe/api/',
+  baseURL: process.env.NODE_ENV === 'production' ? (process.env.VUE_APP_API_BASE_URL || '/') : '/SmartScribe/api/',
   timeout: 10000,
   headers: {
     'Content-Type': 'application/json'
@@ -39,9 +45,13 @@ api.interceptors.request.use(config => {
   }
 
   // Debug logging
-  console.log('API Request URL:', config.baseURL + config.url)
-  console.log('API Request Method:', config.method)
-  console.log('API Request Headers:', config.headers)
+  console.log('🔄 API Request Details:')
+  console.log('  - Environment:', process.env.NODE_ENV)
+  console.log('  - Base URL:', config.baseURL)
+  console.log('  - Full URL:', config.baseURL + config.url)
+  console.log('  - Method:', config.method)
+  console.log('  - Headers:', config.headers)
+  console.log('  - VUE_APP_API_BASE_URL:', process.env.VUE_APP_API_BASE_URL || 'NOT SET')
 
   return config
 })
