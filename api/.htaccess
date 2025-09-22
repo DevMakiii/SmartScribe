@@ -21,9 +21,11 @@
 
 # Security headers
 <IfModule mod_headers.c>
-    Header always set Access-Control-Allow-Origin "*"
+    Header always set Access-Control-Allow-Origin "https://smartscribe-frontend.vercel.app"
     Header always set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, OPTIONS"
-    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-User-ID"
+    Header always set Access-Control-Allow-Headers "Content-Type, Authorization, X-User-ID, X-Requested-With"
+    Header always set Access-Control-Allow-Credentials "true"
+    Header always set Access-Control-Max-Age "86400"
 </IfModule>
 
 # Prevent directory listing
