@@ -34,6 +34,41 @@ module.exports = async (req, res) => {
   const action = req.query.action || 'index';
   const db = await getDbConnection();
 
+  // Add CORS headers for all requests (not just preflight)
+  const origin = req.headers.origin || '';
+  const allowedOrigins = [
+    'https://smartscribe-frontend.vercel.app',
+    'https://your-custom-domain.com',
+    'http://localhost:8080',
+    'http://localhost:3000'
+  ];
+
+  const isOriginAllowed = allowedOrigins.includes(origin) || origin === '';
+
+  if (isOriginAllowed) {
+    res.setHeader('Access-Control-Allow-Origin', origin || 'https://smartscribe-frontend.vercel.app');
+  } else {
+    // For debugging, temporarily allow all origins (REMOVE IN PRODUCTION)
+    console.log('🚨 CORS DEBUG: Origin not in allowed list:', origin);
+    console.log('🚨 CORS DEBUG: Allowed origins:', allowedOrigins);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+  }
+
+  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-Requested-With, Cache-Control, Pragma');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400');
+
+  console.log('🔍 CORS DEBUG: Request details:');
+  console.log('  - Method:', req.method);
+  console.log('  - Origin:', origin);
+  console.log('  - Action:', action);
+  console.log('  - Headers set:', {
+    'Access-Control-Allow-Origin': origin || 'https://smartscribe-frontend.vercel.app',
+    'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+    'Access-Control-Allow-Credentials': 'true'
+  });
+
   try {
     switch (action) {
       case 'register':
