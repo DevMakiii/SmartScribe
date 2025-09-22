@@ -99,7 +99,21 @@ export default {
     return api.get(`/auth?action=validateResetToken&token=${encodeURIComponent(token)}`)
   },
   register(userData) {
-    return api.post('/auth?action=register', userData)
+    console.log('🔄 API Register: Starting registration request');
+    console.log('🔄 API Register: User data:', userData);
+    console.log('🔄 API Register: Full URL will be:', this.defaults.baseURL + '/auth?action=register');
+
+    const request = api.post('/auth?action=register', userData);
+
+    request.then(response => {
+      console.log('✅ API Register: Success response:', response);
+    }).catch(error => {
+      console.error('❌ API Register: Error response:', error);
+      console.error('❌ API Register: Error config:', error.config);
+      console.error('❌ API Register: Error response data:', error.response?.data);
+    });
+
+    return request;
   },
   logout() {
     return api.post('/auth?action=logout')

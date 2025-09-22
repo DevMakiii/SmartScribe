@@ -11,11 +11,26 @@ class AuthController extends BaseController {
 
     public function register() {
         try {
+            // Debug logging for registration
+            error_log("REGISTER Debug - ===== REGISTRATION REQUEST =====");
+            error_log("REGISTER Debug - Request method: " . $_SERVER['REQUEST_METHOD']);
+            error_log("REGISTER Debug - Content-Type: " . ($_SERVER['CONTENT_TYPE'] ?? 'not set'));
+            error_log("REGISTER Debug - Raw input: " . file_get_contents('php://input'));
+
             $data = json_decode(file_get_contents('php://input'), true);
+
+            if ($data === null) {
+                error_log("REGISTER Debug - Failed to decode JSON input");
+                $this->badRequestResponse('Invalid JSON data');
+                return;
+            }
+
+            error_log("REGISTER Debug - Decoded data: " . json_encode($data));
 
             // Validate input
             $validationErrors = $this->validateRequired($data, ['first_name', 'last_name', 'email', 'password']);
             if (!empty($validationErrors)) {
+                error_log("REGISTER Debug - Validation errors: " . json_encode($validationErrors));
                 $this->validationErrorResponse($validationErrors);
                 return;
             }

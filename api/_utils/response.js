@@ -1,7 +1,35 @@
 // api/_utils/response.js
 class ResponseUtils {
+  // Set CORS headers
+  static setCorsHeaders(res) {
+    const origin = res.req.headers.origin || '';
+    const allowedOrigins = [
+      'https://smartscribe-frontend.vercel.app',
+      'https://your-custom-domain.com',
+      'http://localhost:8080',
+      'http://localhost:3000'
+    ];
+
+    // Check if origin is allowed
+    const isOriginAllowed = allowedOrigins.includes(origin) || origin === '';
+
+    if (isOriginAllowed) {
+      res.setHeader('Access-Control-Allow-Origin', origin || 'https://smartscribe-frontend.vercel.app');
+    } else {
+      // For debugging, temporarily allow all origins (REMOVE IN PRODUCTION)
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-User-ID, X-Requested-With, Cache-Control, Pragma');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    res.setHeader('Access-Control-Max-Age', '86400');
+  }
+
   // Success response
   static success(res, data = null, message = 'Success', statusCode = 200) {
+    this.setCorsHeaders(res);
+
     const response = {
       success: true,
       message
@@ -16,6 +44,8 @@ class ResponseUtils {
 
   // Error response
   static error(res, message = 'An error occurred', statusCode = 500) {
+    this.setCorsHeaders(res);
+
     const response = {
       success: false,
       message
@@ -46,6 +76,8 @@ class ResponseUtils {
 
   // Validation error response
   static validationError(res, errors) {
+    this.setCorsHeaders(res);
+
     const response = {
       success: false,
       message: 'Validation failed',

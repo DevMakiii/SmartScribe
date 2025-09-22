@@ -7,10 +7,38 @@ $dotenv = Dotenv\Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
 
 header('Content-Type: application/json');
-// CORS headers are handled by .htaccess
+
+// Enhanced CORS logging and headers
+$origin = $_SERVER['HTTP_ORIGIN'] ?? '';
+$allowedOrigins = ['https://smartscribe-frontend.vercel.app', 'https://your-custom-domain.com'];
+
+error_log("CORS Debug - ===== CORS REQUEST ANALYSIS =====");
+error_log("CORS Debug - Request Origin: " . $origin);
+error_log("CORS Debug - Request Method: " . $_SERVER['REQUEST_METHOD']);
+error_log("CORS Debug - Request Headers: " . json_encode(getallheaders()));
+error_log("CORS Debug - Allowed Origins: " . json_encode($allowedOrigins));
+
+// Check if origin is allowed
+$isOriginAllowed = in_array($origin, $allowedOrigins) || $origin === '';
+
+if ($isOriginAllowed) {
+    header("Access-Control-Allow-Origin: " . ($origin ?: 'https://smartscribe-frontend.vercel.app'));
+    error_log("CORS Debug - Origin allowed, setting header: " . ($origin ?: 'https://smartscribe-frontend.vercel.app'));
+} else {
+    error_log("CORS Debug - Origin NOT allowed: " . $origin);
+    // For debugging, allow all origins temporarily (REMOVE IN PRODUCTION)
+    header("Access-Control-Allow-Origin: *");
+    error_log("CORS Debug - TEMPORARILY allowing all origins for debugging");
+}
+
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization, X-User-ID, X-Requested-With, Cache-Control, Pragma");
+header("Access-Control-Allow-Credentials: true");
+header("Access-Control-Max-Age: 86400");
 
 // Handle preflight OPTIONS requests
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+    error_log("CORS Debug - Handling preflight OPTIONS request");
     http_response_code(200);
     exit();
 }
