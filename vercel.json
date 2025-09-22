@@ -25,7 +25,7 @@
   ],
   "env": {
     "NODE_ENV": "production",
-    "API_BASE_URL": "https://your-api-domain.com"
+    "API_BASE_URL": "https://smartscribe-backend.vercel.app"
   },
   "build": {
     "env": {
