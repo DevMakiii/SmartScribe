@@ -1,0 +1,247 @@
+@import 'tailwindcss/base';
+@import 'tailwindcss/components';
+@import 'tailwindcss/utilities';
+@import '@fortawesome/fontawesome-free/css/all.min.css';
+
+/* Custom styles */
+html, body {
+  @apply h-full;
+}
+
+body {
+  font-family: 'Inter', 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+}
+
+/* Theme-aware body styles - will be overridden by Vue theme classes */
+.theme-dark body {
+  background-color: #111827;
+  color: white;
+}
+
+.theme-light body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+/* Apply CSS variables to common elements in light theme */
+.theme-light {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+}
+
+.theme-light .bg-white {
+  background-color: var(--bg-secondary) !important;
+}
+
+.theme-light .text-gray-700 {
+  color: var(--text-primary) !important;
+}
+
+.theme-light .border-gray-200 {
+  border-color: var(--border-primary) !important;
+}
+
+/* True light theme colors for proper light appearance */
+.theme-light {
+  --bg-primary: #ffffff; /* pure white - main background */
+  --bg-secondary: #f8fafc; /* very light gray - card backgrounds */
+  --bg-tertiary: #f1f5f9; /* light gray - hover states */
+  --text-primary: #1e293b; /* dark slate - primary text */
+  --text-secondary: #64748b; /* medium gray - secondary text */
+  --text-tertiary: #94a3b8; /* light gray - tertiary text */
+  --border-primary: #e2e8f0; /* light border - borders */
+  --border-secondary: #cbd5e1; /* medium border - secondary borders */
+  --accent-primary: #3b82f6; /* blue-500 - primary accent */
+  --accent-hover: #2563eb; /* blue-600 - hover accent */
+}
+
+.theme-dark {
+  --bg-primary: #111827; /* gray-900 */
+  --bg-secondary: #1f2937; /* gray-800 */
+  --bg-tertiary: #374151; /* gray-700 */
+  --text-primary: #ffffff; /* white */
+  --text-secondary: #d1d5db; /* gray-300 */
+  --text-tertiary: #9ca3af; /* gray-400 */
+  --border-primary: #374151; /* gray-700 */
+  --border-secondary: #4b5563; /* gray-600 */
+  --accent-primary: #3b82f6; /* blue-500 */
+  --accent-hover: #2563eb; /* blue-600 */
+}
+
+/* Ensure smooth transitions for theme changes */
+* {
+  transition: background-color 0.3s ease, color 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Enhanced focus states for better accessibility */
+.theme-light .focus\:bg-slate-50:focus {
+  background-color: var(--bg-secondary);
+}
+
+.theme-light .focus\:border-blue-500:focus {
+  border-color: var(--accent-primary);
+}
+
+.theme-light .focus\:ring-blue-500\/20:focus {
+  box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.2);
+}
+
+/* Improved button styles for light theme */
+.theme-light .bg-slate-200 {
+  background-color: var(--bg-tertiary);
+}
+
+.theme-light .hover\:bg-slate-300:hover {
+  background-color: #e2e8f0; /* slate-200 */
+}
+
+.theme-light .text-slate-700 {
+  color: var(--text-primary);
+}
+
+/* Enhanced card shadows for light theme */
+.theme-light .shadow-sm {
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+}
+
+.theme-light .hover\:shadow-md:hover {
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+/* Prevent horizontal scrolling on all devices */
+* {
+  box-sizing: border-box;
+}
+
+html, body, #app {
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+
+/* Ensure text doesn't cause horizontal overflow */
+p, span, div, textarea, input {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+/* Mobile-specific fixes */
+@media (max-width: 640px) {
+  .container, .max-w-md, .max-w-sm, .max-w-lg, .max-w-xl {
+    max-width: 100vw !important;
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Force mobile layouts */
+  .flex {
+    flex-direction: column !important;
+  }
+
+  .md\:flex-row {
+    flex-direction: column !important;
+  }
+
+  .grid-cols-1 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .lg\:grid-cols-2 {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Mobile text sizes */
+  .text-xl { font-size: 1.125rem !important; }
+  .text-2xl { font-size: 1.25rem !important; }
+  .text-3xl { font-size: 1.5rem !important; }
+
+  /* Mobile spacing */
+  .p-4 { padding: 0.75rem !important; }
+  .p-6 { padding: 1rem !important; }
+  .p-8 { padding: 1.5rem !important; }
+
+  /* Mobile margins */
+  .mb-6 { margin-bottom: 1rem !important; }
+  .mt-6 { margin-top: 1rem !important; }
+
+  /* Force sidebar to be hidden on mobile */
+  .md\:relative {
+    position: fixed !important;
+    left: -100% !important;
+  }
+
+  /* Mobile button sizes */
+  .px-4 { padding-left: 0.75rem !important; padding-right: 0.75rem !important; }
+  .py-2 { padding-top: 0.5rem !important; padding-bottom: 0.5rem !important; }
+
+  /* Mobile input sizes */
+  .p-3 { padding: 0.5rem !important; }
+}
+
+/* Extra small screens */
+@media (max-width: 480px) {
+  .text-lg { font-size: 1rem !important; }
+  .text-xl { font-size: 1.125rem !important; }
+  .p-4 { padding: 0.5rem !important; }
+  .mb-4 { margin-bottom: 0.75rem !important; }
+
+  /* Force all buttons to be full width on very small screens */
+  button {
+    width: 100% !important;
+    margin-bottom: 0.5rem !important;
+  }
+
+  /* Ensure inputs are properly sized */
+  input, textarea, select {
+    font-size: 16px !important; /* Prevents zoom on iOS */
+    width: 100% !important;
+  }
+
+  /* Make sure all containers fit the screen */
+  .w-full {
+    width: 100vw !important;
+    max-width: 100vw !important;
+  }
+
+  /* Fix any remaining overflow issues */
+  .overflow-hidden {
+    overflow: hidden !important;
+  }
+}
+
+/* Very small phones */
+@media (max-width: 360px) {
+  .text-base { font-size: 0.875rem !important; }
+  .text-sm { font-size: 0.75rem !important; }
+  .p-3 { padding: 0.375rem !important; }
+  .p-4 { padding: 0.5rem !important; }
+}
+
+/* Form styles */
+.form-input {
+  @apply w-full p-3 rounded bg-gray-700 border border-gray-600 focus:outline-none focus:border-blue-500;
+}
+
+.btn-primary {
+  @apply px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition;
+}
+
+.btn-secondary {
+  @apply px-4 py-2 bg-gray-700 text-white rounded-md hover:bg-gray-600 transition;
+}
+
+.btn-white {
+  @apply px-4 py-2 bg-white text-gray-900 rounded-md hover:bg-gray-200 transition;
+}
+
+/* Modal transitions */
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.3s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}

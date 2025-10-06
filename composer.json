@@ -1,0 +1,12 @@
+{
+    "name": "marca/smartscribe-newnew",
+    "description": "An AI Study Helper that uses OCR and GPT for note processing and summarization",
+    "require": {
+        "thiagoalessio/tesseract_ocr": "^2.13",
+        "smalot/pdfparser": "^2.7",
+        "google/apiclient": "^2.0",
+        "firebase/php-jwt": "^6.4",
+        "phpmailer/phpmailer": "^6.10",
+        "vlucas/phpdotenv": "^5.6"
+    }
+}

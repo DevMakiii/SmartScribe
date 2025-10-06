@@ -1,0 +1,18 @@
+# public/.htaccess
+<IfModule mod_rewrite.c>
+   RewriteEngine On
+   RewriteBase /
+
+   # API requests are handled by Vue proxy - don't rewrite here
+   # RewriteCond %{REQUEST_URI} ^/api/(.*)$
+   # RewriteRule ^api/(.*)$ ../api/index.php [QSA,L]
+
+   # Allow direct access to uploaded files
+   RewriteCond %{REQUEST_URI} ^/uploads/.*$
+   RewriteRule . - [L]
+
+   # Handle Vue Router (for SPA)
+   RewriteCond %{REQUEST_FILENAME} !-f
+   RewriteCond %{REQUEST_FILENAME} !-d
+   RewriteRule . index.html [L]
+ </IfModule>

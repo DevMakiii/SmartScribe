@@ -1,0 +1,20 @@
+# Simplified .htaccess for testing
+<IfModule mod_rewrite.c>
+   RewriteEngine On
+   RewriteBase /
+
+   # Simple routing to public/index.php
+   RewriteCond %{REQUEST_FILENAME} !-f
+   RewriteCond %{REQUEST_FILENAME} !-d
+   RewriteRule . public/index.php [L]
+ </IfModule>
+
+# Basic security headers only
+<IfModule mod_headers.c>
+   Header always set X-Content-Type-Options nosniff
+ </IfModule>
+
+# Minimal file access (commented out for testing)
+# <FilesMatch "\.(php|php5|php4|php3|phtml)$">
+#    Require all granted
+# </FilesMatch>
