@@ -36,14 +36,16 @@ import {
   faChevronRight,
   faCheck,
   faChartBar,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faListUl,
+  faDice
 } from '@fortawesome/free-solid-svg-icons'
 import {
   faTwitter, faFacebook, faInstagram, faGithub,
   faFacebookF, faGoogle, faApple
 } from '@fortawesome/free-brands-svg-icons'
 import {
-  faCircle
+  faCircle, faSmile, faMeh, faFrown
 } from '@fortawesome/free-regular-svg-icons'
 
 // Add all icons to the library
@@ -75,7 +77,12 @@ library.add(
   faChevronRight,
   faCheck,
   faChartBar,
-  faExclamationTriangle
+  faExclamationTriangle,
+  faListUl,
+  faDice,
+  faSmile,
+  faMeh,
+  faFrown
 )
 
 

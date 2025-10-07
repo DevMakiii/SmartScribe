@@ -132,6 +132,31 @@ try {
             require_once __DIR__ . '/controllers/NoteController.php';
             $controller = new NoteController($db);
 
+            // Handle action-based routes first
+            if ($action) {
+                switch ($action) {
+                    case 'extractKeywords':
+                        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['id'])) {
+                            $controller->extractKeywords($_GET['id']);
+                        } else {
+                            http_response_code(400);
+                            echo json_encode([
+                                'success' => false,
+                                'error' => 'Invalid request for extractKeywords action'
+                            ]);
+                        }
+                        break;
+                    default:
+                        http_response_code(404);
+                        echo json_encode([
+                            'success' => false,
+                            'error' => 'Notes action not found'
+                        ]);
+                }
+                break;
+            }
+
+            // Handle standard CRUD operations
             switch ($_SERVER['REQUEST_METHOD']) {
                 case 'GET':
                     error_log("API Router - Notes GET request");
@@ -367,17 +392,6 @@ try {
                         echo json_encode([
                             'success' => false,
                             'error' => 'Method not allowed'
-                        ]);
-                    }
-                    break;
-                case 'update-progress':
-                    if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_GET['id'])) {
-                        $controller->updateProgress($_GET['id']);
-                    } else {
-                        http_response_code(400);
-                        echo json_encode([
-                            'success' => false,
-                            'error' => 'Missing goal ID or invalid method'
                         ]);
                     }
                     break;

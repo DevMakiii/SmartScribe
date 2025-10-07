@@ -13,13 +13,15 @@ class Summary {
     }
 
     public function create() {
-        $query = "INSERT INTO summaries (note_id, content, length, created_at)
-                  VALUES (:note_id, :content, :length, NOW())";
+        $query = "INSERT INTO summaries (note_id, user_id, content, length, format, created_at)
+                  VALUES (:note_id, :user_id, :content, :length, :format, NOW())";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':note_id', $this->note_id);
+        $stmt->bindParam(':user_id', $this->user_id);
         $stmt->bindParam(':content', $this->content);
         $stmt->bindParam(':length', $this->length);
+        $stmt->bindParam(':format', $this->format);
 
         if ($stmt->execute()) {
             return $this->conn->lastInsertId();

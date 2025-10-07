@@ -66,7 +66,13 @@ class SummaryController extends BaseController {
         // If content is not provided, generate summary using AI
         if (!$content) {
             try {
-                $generatedSummary = $this->gptService->generateSummary($note['original_text'], $length, $format);
+                // Extract keywords from the note if available, otherwise extract them
+                $keywords = null;
+                if (!empty($note['keywords'])) {
+                    $keywords = explode(',', $note['keywords']);
+                }
+
+                $generatedSummary = $this->gptService->generateSummary($note['original_text'], $length, $format, $keywords);
                 $content = $generatedSummary ?: $this->generateFallbackSummary($note['original_text'], $length, $format);
             } catch (Exception $e) {
                 error_log("AI summary generation failed in SummaryController: " . $e->getMessage() . ", using fallback");
@@ -75,8 +81,10 @@ class SummaryController extends BaseController {
         }
 
         $this->summary->note_id = $data['note_id'];
+        $this->summary->user_id = $userId;
         $this->summary->content = $content;
         $this->summary->length = $length;
+        $this->summary->format = $format;
 
         error_log("SummaryController::store() - Creating summary for note_id: {$data['note_id']}, user_id: $userId");
 

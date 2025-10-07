@@ -156,40 +156,88 @@ export function useNotifications() {
 
   // Professional notification methods
   const showSuccess = (title, message, options = {}) => {
-    return addNotification({
+    const notification = addNotification({
       type: 'SUCCESS',
       title,
       message,
       ...options
     });
+
+    // Dispatch toast event
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        type: 'success',
+        title,
+        message,
+        icon: NOTIFICATION_TYPES.SUCCESS.icon
+      }
+    }));
+
+    return notification;
   };
 
   const showError = (title, message, options = {}) => {
-    return addNotification({
+    const notification = addNotification({
       type: 'ERROR',
       title,
       message,
       priority: 'high',
       ...options
     });
+
+    // Dispatch toast event
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        type: 'error',
+        title,
+        message,
+        icon: NOTIFICATION_TYPES.ERROR.icon
+      }
+    }));
+
+    return notification;
   };
 
   const showWarning = (title, message, options = {}) => {
-    return addNotification({
+    const notification = addNotification({
       type: 'WARNING',
       title,
       message,
       ...options
     });
+
+    // Dispatch toast event
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        type: 'warning',
+        title,
+        message,
+        icon: NOTIFICATION_TYPES.WARNING.icon
+      }
+    }));
+
+    return notification;
   };
 
   const showInfo = (title, message, options = {}) => {
-    return addNotification({
+    const notification = addNotification({
       type: 'INFO',
       title,
       message,
       ...options
     });
+
+    // Dispatch toast event
+    window.dispatchEvent(new CustomEvent('show-toast', {
+      detail: {
+        type: 'info',
+        title,
+        message,
+        icon: NOTIFICATION_TYPES.INFO.icon
+      }
+    }));
+
+    return notification;
   };
 
   // App-specific notifications

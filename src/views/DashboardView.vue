@@ -574,7 +574,7 @@ export default {
       if (!notesResponse.value?.data) return [];
 
       return notesResponse.value.data.slice(0, 3).map(note => {
-        const createdDate = new Date(note.created_at);
+        const createdDate = new Date(note.created_at.replace(' ', 'T') + 'Z');
         const summary = note.original_text ? note.original_text.substring(0, 100) + (note.original_text.length > 100 ? '...' : '') : 'No content';
 
         return {
@@ -988,14 +988,24 @@ export default {
     const handlePhotoCaptured = (photoData) => {
       // Store the captured data for processing
       pendingImageData.value = photoData;
+      ocrText.value = photoData.originalText;
 
       // Show title modal to get note title
       showTitleModal.value = true;
       noteTitle.value = '';
+
+      // Show success message with quality info
+      if (photoData.quality === 'high') {
+        showSuccess('Photo captured', `High quality text extracted (${photoData.confidence}% confidence)`);
+      } else if (photoData.quality === 'medium') {
+        showInfo('Photo captured', `Text extracted with medium quality (${photoData.confidence}% confidence)`);
+      } else {
+        showWarning('Photo captured', `Text extracted with low quality (${photoData.confidence}% confidence). Please review and edit if needed.`);
+      }
     };
 
     /**
-     * Handle image file upload and perform OCR
+     * Handle image file upload and perform OCR using backend service
      */
     const handleFileUpload = async (event) => {
       const file = event.target.files[0];
@@ -1003,35 +1013,66 @@ export default {
         return;
       }
 
-      const MAX_FILE_SIZE = 5 * 1024 * 1024;
+      const MAX_FILE_SIZE = 10 * 1024 * 1024; // Increased to match backend limit
       if (file.size > MAX_FILE_SIZE) {
-        alert('File is too large!');
+        showWarning('File too large', 'File size must be less than 10MB');
         return;
       }
 
       const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
       if (!allowedTypes.includes(file.type)) {
-        alert('Only JPG, PNG, GIF, and WebP images are allowed!');
+        showWarning('Invalid file type', 'Only JPG, PNG, GIF, and WebP images are allowed');
         return;
       }
 
       isProcessingFile.value = true;
 
       try {
-        // Process images with OCR
-        const { data: { text } } = await Tesseract.recognize(file, 'eng', {
-          logger: () => {} // Disable logging
+        // Process image with Tesseract.js
+        const result = await Tesseract.recognize(file, 'eng', {
+          logger: m => console.log(m)
         });
 
-        ocrText.value = text;
-        pendingImageData.value = { type: 'upload', file: file, text: text };
+        const confidence = Math.round(result.data.confidence);
+        const extractedText = result.data.text.trim();
+
+        if (!extractedText) {
+          throw new Error('No text could be extracted from the image');
+        }
+
+        ocrText.value = extractedText;
+
+        // Determine quality based on confidence
+        let quality = 'low';
+        if (confidence >= 80) {
+          quality = 'high';
+        } else if (confidence >= 60) {
+          quality = 'medium';
+        }
+
+        pendingImageData.value = {
+          type: 'upload',
+          file: file,
+          text: extractedText,
+          confidence: confidence,
+          quality: quality
+        };
 
         showTitleModal.value = true;
         noteTitle.value = ''; // Reset title input
 
+        // Show success message with quality info
+        if (quality === 'high') {
+          showSuccess('OCR completed', `High quality text extracted (${confidence}% confidence)`);
+        } else if (quality === 'medium') {
+          showInfo('OCR completed', `Text extracted with medium quality (${confidence}% confidence)`);
+        } else {
+          showWarning('OCR completed', `Text extracted with low quality (${confidence}% confidence). Please review and edit if needed.`);
+        }
+
       } catch (error) {
-        // Error processing file
-        alert('Error processing file. Please try again.');
+        console.error('Tesseract OCR error:', error);
+        showWarning('OCR failed', 'Failed to extract text from the image. Please try again with a clearer image or different lighting.');
       } finally {
         isProcessingFile.value = false;
       }
@@ -1070,7 +1111,7 @@ export default {
           // Handle OCR/upload content (existing logic)
           noteData = {
             title: noteTitle.value.trim(),
-            text: pendingImageData.value.type === 'upload' ? pendingImageData.value.text : pendingImageData.value.data,
+            text: pendingImageData.value.type === 'upload' ? pendingImageData.value.text : pendingImageData.value.originalText,
             ...(pendingImageData.value.type === 'upload' && pendingImageData.value.file && { image: pendingImageData.value.file })
           };
 

@@ -248,7 +248,21 @@
         
         
       </main>
-</Header>
+    </Header>
+
+    <!-- Delete Confirmation Modal -->
+    <DeleteConfirmationModal
+      :show="showDeleteModal"
+      :is-deleting="isLoading"
+      @confirm="confirmDeleteAccount"
+      @cancel="cancelDeleteAccount"
+    />
+
+    <!-- Password Update Success Modal -->
+    <PasswordUpdateSuccessModal
+      :show="showPasswordSuccessModal"
+      @close="closePasswordSuccessModal"
+    />
 </template>
 
 <script>
@@ -258,11 +272,15 @@ import { useRouter } from 'vue-router';
 import { useUserProfile } from '@/composables/useUserProfile';
 import api from '@/services/api';
 import Header from '@/components/Header.vue';
+import DeleteConfirmationModal from '@/components/DeleteConfirmationModal.vue';
+import PasswordUpdateSuccessModal from '@/components/PasswordUpdateSuccessModal.vue';
 
 export default {
   name: 'SettingsView',
   components: {
-    Header
+    Header,
+    DeleteConfirmationModal,
+    PasswordUpdateSuccessModal
   },
   setup() {
     const store = useStore();
@@ -288,6 +306,12 @@ export default {
     const isLoading = ref(false);
     const message = ref('');
     const messageType = ref(''); // 'success' or 'error'
+
+    // Delete confirmation modal state
+    const showDeleteModal = ref(false);
+
+    // Password update success modal state
+    const showPasswordSuccessModal = ref(false);
 
     // User menu state
     const showUserMenu = ref(false);
@@ -443,6 +467,11 @@ export default {
         return;
       }
 
+      if (passwords.value.current === passwords.value.new) {
+        showMessage('New password must be different from current password', 'error');
+        return;
+      }
+
       try {
         isLoading.value = true;
 
@@ -454,7 +483,7 @@ export default {
 
         if (response.data.success) {
           passwords.value = { current: '', new: '', confirm: '' };
-          showMessage('Password updated successfully!');
+          showPasswordSuccessModal.value = true;
         } else {
           showMessage(response.data.message || 'Failed to update password', 'error');
         }
@@ -471,40 +500,54 @@ export default {
 
 
 
-    // Delete account
-    const deleteAccount = async () => {
-      if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-        try {
-          isLoading.value = true;
+    // Delete account - show confirmation modal
+    const deleteAccount = () => {
+      showDeleteModal.value = true;
+    };
 
-          const response = await api.deleteAccount();
+    // Confirm delete account
+    const confirmDeleteAccount = async () => {
+      showDeleteModal.value = false;
+      try {
+        isLoading.value = true;
 
-          if (response.data.success) {
-            showMessage('Account deleted successfully. You will be logged out now.', 'success');
+        const response = await api.deleteAccount();
 
-            // Clear user data and redirect to login after a short delay
-            setTimeout(async () => {
-              // Use the logout function from composable
-              const { logout: logoutUser } = useUserProfile();
-              await logoutUser();
+        if (response.data.success) {
+          showMessage('Account deleted successfully. You will be logged out now.', 'success');
 
-              // Redirect to login page
-              store.dispatch('auth/logout');
-              router.push('/login');
-            }, 2000);
-          } else {
-            showMessage(response.data.message || 'Failed to delete account', 'error');
-          }
-        } catch (error) {
-          console.error('Account deletion error:', error);
-          const errorMessage = error.response?.data?.message ||
-                              error.response?.data?.error ||
-                              'Failed to delete account';
-          showMessage(errorMessage, 'error');
-        } finally {
-          isLoading.value = false;
+          // Clear user data and redirect to login after a short delay
+          setTimeout(async () => {
+            // Use the logout function from composable
+            const { logout: logoutUser } = useUserProfile();
+            await logoutUser();
+
+            // Redirect to login page
+            store.dispatch('auth/logout');
+            router.push('/login');
+          }, 2000);
+        } else {
+          showMessage(response.data.message || 'Failed to delete account', 'error');
         }
+      } catch (error) {
+        console.error('Account deletion error:', error);
+        const errorMessage = error.response?.data?.message ||
+                            error.response?.data?.error ||
+                            'Failed to delete account';
+        showMessage(errorMessage, 'error');
+      } finally {
+        isLoading.value = false;
       }
+    };
+
+    // Cancel delete account
+    const cancelDeleteAccount = () => {
+      showDeleteModal.value = false;
+    };
+
+    // Close password success modal
+    const closePasswordSuccessModal = () => {
+      showPasswordSuccessModal.value = false;
     };
 
     // Fetch user profile data using the composable
@@ -695,12 +738,17 @@ export default {
       fontSizeClasses,
       sidebarVisible,
       showUserMenu,
+      showDeleteModal,
+      showPasswordSuccessModal,
       isLoading,
       message,
       messageType,
       saveProfile,
       updatePassword,
       deleteAccount,
+      confirmDeleteAccount,
+      cancelDeleteAccount,
+      closePasswordSuccessModal,
       fetchUserProfile,
       uploadProfilePicture,
       handleProfilePictureUpload,

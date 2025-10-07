@@ -292,7 +292,14 @@ export default {
         errorMessage.value = '';
 
         // Facebook login is not currently implemented
-        alert('Facebook login is not currently supported. Please use email/password login.');
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'Feature Not Available',
+            message: 'Facebook login is not currently supported. Please use email/password login.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }));
 
       } catch (error) {
         console.error('❌ Facebook login failed:', error);

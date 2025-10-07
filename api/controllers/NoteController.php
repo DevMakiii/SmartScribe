@@ -72,17 +72,31 @@ class NoteController extends BaseController {
                 return;
             }
 
+            // Get search query from GET parameters
+            $searchQuery = isset($_GET['search']) ? trim($_GET['search']) : null;
+            error_log("NoteController::index() - Search query: " . ($searchQuery ?: 'none'));
+
+            // Build query with optional search
+            $whereConditions = ["user_id = ?"];
+            $params = [$userId];
+
+            if ($searchQuery) {
+                $whereConditions[] = "(title LIKE ? OR original_text LIKE ? OR keywords LIKE ?)";
+                $params[] = '%' . $searchQuery . '%';
+                $params[] = '%' . $searchQuery . '%';
+                $params[] = '%' . $searchQuery . '%';
+            }
+
             $query = "SELECT n.*
                       FROM notes n
-                      WHERE user_id = :user_id
+                      WHERE " . implode(' AND ', $whereConditions) . "
                       ORDER BY created_at DESC";
 
             error_log("NoteController::index() - Executing query: " . $query);
-            error_log("NoteController::index() - User ID for query: " . $userId);
+            error_log("NoteController::index() - Query parameters: " . json_encode($params));
 
             $stmt = $this->db->prepare($query);
-            $stmt->bindParam(':user_id', $userId);
-            $stmt->execute();
+            $stmt->execute($params);
 
             $notes = $stmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("NoteController::index() - Query executed, found " . count($notes) . " notes");
@@ -190,8 +204,8 @@ class NoteController extends BaseController {
             }
 
             if ($noteId) {
-                // Auto-extract keywords from the note content
-                $keywords = $this->keywordService->extractKeywords($this->sanitizeInput($text), 5);
+                // Auto-extract keywords from the note content using enhanced multi-pass extraction
+                $keywords = $this->keywordService->extractKeywords($this->sanitizeInput($text), 7, ['topic', 'entity', 'concept']);
                 $keywordsString = implode(',', $keywords);
 
                 // Update the note with extracted keywords
@@ -215,8 +229,9 @@ class NoteController extends BaseController {
 
                 $this->successResponse([
                     'note_id' => $noteId,
-                    'keywords' => $keywords
-                ], 'Note saved successfully with auto-extracted keywords', 201);
+                    'keywords' => $keywords,
+                    'keyword_count' => count($keywords)
+                ], 'Note saved successfully with enhanced auto-extracted keywords', 201);
             } else {
                 $this->errorResponse('Failed to save note');
             }
@@ -241,13 +256,13 @@ class NoteController extends BaseController {
         }
 
         $query = "SELECT n.*,
-                         DATE_FORMAT(n.created_at, '%M %e, %Y at %l:%i %p') as last_edited,
+                         DATE_FORMAT(COALESCE(n.updated_at, n.created_at), '%M %e, %Y at %l:%i %p') as last_edited,
                          s.content as summary
-                  FROM notes n
-                  LEFT JOIN summaries s ON n.id = s.note_id
-                  WHERE n.id = :id AND n.user_id = :user_id
-                  ORDER BY s.created_at DESC
-                  LIMIT 1";
+                   FROM notes n
+                   LEFT JOIN summaries s ON n.id = s.note_id
+                   WHERE n.id = :id AND n.user_id = :user_id
+                   ORDER BY s.created_at DESC
+                   LIMIT 1";
 
         $stmt = $this->db->prepare($query);
         $stmt->bindParam(':id', $id);
@@ -337,6 +352,11 @@ class NoteController extends BaseController {
             $params[':text'] = $text;
         }
 
+        if ($keywords !== NULL) {
+            $updateFields[] = "keywords = :keywords";
+            $params[':keywords'] = $keywords;
+        }
+
         if ($isFavorite !== NULL) {
             $updateFields[] = "is_favorite = :is_favorite";
             $params[':is_favorite'] = $isFavorite;
@@ -399,6 +419,69 @@ class NoteController extends BaseController {
                 "success" => false,
                 "error" => "Failed to delete note"
             ]);
+        }
+    }
+
+    /**
+     * Extract keywords for an existing note
+     */
+    public function extractKeywords($id) {
+        try {
+            // Authenticate user first
+            if (!$this->authenticateUser()) {
+                $this->unauthorizedResponse();
+                return;
+            }
+
+            $userId = $this->getUserId();
+
+            if (!$userId) {
+                $this->unauthorizedResponse();
+                return;
+            }
+
+            // Check if note exists and belongs to user
+            $checkQuery = "SELECT id, original_text FROM notes WHERE id = :id AND user_id = :user_id";
+            $checkStmt = $this->db->prepare($checkQuery);
+            $checkStmt->bindParam(':id', $id);
+            $checkStmt->bindParam(':user_id', $userId);
+            $checkStmt->execute();
+
+            $note = $checkStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$note) {
+                $this->notFoundResponse('Note not found');
+                return;
+            }
+
+            // Get parameters from request
+            $data = json_decode(file_get_contents('php://input'), true);
+            $count = $data['count'] ?? 7;
+            $types = $data['types'] ?? ['topic', 'entity', 'concept'];
+
+            // Extract keywords using enhanced service
+            $keywords = $this->keywordService->extractKeywords($note['original_text'], $count, $types);
+            $keywordsString = implode(',', $keywords);
+
+            // Update the note with extracted keywords
+            $updateQuery = "UPDATE notes SET keywords = :keywords WHERE id = :id AND user_id = :user_id";
+            $updateStmt = $this->db->prepare($updateQuery);
+            $updateStmt->bindParam(':keywords', $keywordsString);
+            $updateStmt->bindParam(':id', $id);
+            $updateStmt->bindParam(':user_id', $userId);
+            $updateStmt->execute();
+
+            error_log("NoteController::extractKeywords() - Keywords extracted and saved: " . $keywordsString);
+
+            $this->successResponse([
+                'note_id' => $id,
+                'keywords' => $keywords,
+                'keyword_count' => count($keywords)
+            ], 'Keywords extracted successfully', 200);
+
+        } catch (Exception $e) {
+            error_log("NoteController::extractKeywords() - Error: " . $e->getMessage());
+            $this->errorResponse('Failed to extract keywords: ' . $e->getMessage());
         }
     }
 

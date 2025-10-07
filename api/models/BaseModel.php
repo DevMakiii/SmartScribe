@@ -84,8 +84,8 @@ abstract class BaseModel {
         $data = $this->filterFillable($data);
 
         if ($this->timestamps) {
-            $data['created_at'] = date('Y-m-d H:i:s');
-            $data['updated_at'] = date('Y-m-d H:i:s');
+            $data['created_at'] = gmdate('Y-m-d H:i:s');
+            $data['updated_at'] = gmdate('Y-m-d H:i:s');
         }
 
         $columns = array_keys($data);
@@ -108,7 +108,7 @@ abstract class BaseModel {
         $data = $this->filterFillable($data);
 
         if ($this->timestamps) {
-            $data['updated_at'] = date('Y-m-d H:i:s');
+            $data['updated_at'] = gmdate('Y-m-d H:i:s');
         }
 
         $columns = array_keys($data);
@@ -128,7 +128,7 @@ abstract class BaseModel {
         $data = $this->filterFillable($data);
 
         if ($this->timestamps) {
-            $data['updated_at'] = date('Y-m-d H:i:s');
+            $data['updated_at'] = gmdate('Y-m-d H:i:s');
         }
 
         $columns = array_keys($data);

@@ -118,16 +118,6 @@ class Goal {
         return $stmt->execute($params);
     }
 
-    public function updateProgress($id, $userId, $newValue) {
-        $query = "UPDATE learning_goals SET current_value = :current_value, updated_at = NOW() WHERE id = :id AND user_id = :user_id";
-
-        $stmt = $this->conn->prepare($query);
-        $stmt->bindParam(':current_value', $newValue);
-        $stmt->bindParam(':id', $id);
-        $stmt->bindParam(':user_id', $userId);
-
-        return $stmt->execute();
-    }
 
     public function delete($id, $userId) {
         $query = "DELETE FROM learning_goals WHERE id = :id AND user_id = :user_id";
@@ -155,6 +145,28 @@ class Goal {
                   WHERE user_id = :user_id AND status = 'completed'
                   AND MONTH(updated_at) = MONTH(CURRENT_DATE())
                   AND YEAR(updated_at) = YEAR(CURRENT_DATE())";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user_id', $userId);
+        $stmt->execute();
+
+        $result = $stmt->fetch();
+        return $result['count'] ?? 0;
+    }
+
+    public function getTotalGoalsCount($userId) {
+        $query = "SELECT COUNT(*) as count FROM learning_goals WHERE user_id = :user_id";
+
+        $stmt = $this->conn->prepare($query);
+        $stmt->bindParam(':user_id', $userId);
+        $stmt->execute();
+
+        $result = $stmt->fetch();
+        return $result['count'] ?? 0;
+    }
+
+    public function getCompletedGoalsCount($userId) {
+        $query = "SELECT COUNT(*) as count FROM learning_goals WHERE user_id = :user_id AND status = 'completed'";
 
         $stmt = $this->conn->prepare($query);
         $stmt->bindParam(':user_id', $userId);

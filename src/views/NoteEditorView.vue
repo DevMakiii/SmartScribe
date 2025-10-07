@@ -89,14 +89,6 @@
               </div>
             </div>
 
-            <!-- Highlighted Text Display -->
-            <div v-if="note.keywords.length > 0 && note.originalText" class="mt-4">
-              <h3 :class="`${themeClasses.secondaryText} text-sm font-medium mb-2`">Highlighted Keywords:</h3>
-              <div
-                :class="`w-full min-h-32 max-h-64 ${themeClasses.input} rounded-lg p-3 sm:p-4 text-sm sm:text-base overflow-y-auto border ${themeClasses.border}`"
-                v-html="highlightedOriginalText"
-              ></div>
-            </div>
           </div>
 
           <!-- AI Generated Summary -->
@@ -163,9 +155,6 @@
               placeholder="Add keyword..."
             />
           </div>
-          <button @click="extractKeywords" :class="`px-3 py-2 sm:px-3 sm:py-1 ${themeClasses.button} rounded text-sm transition w-full sm:w-auto`">
-            <font-awesome-icon :icon="['fas', 'magic']" class="mr-1" /> Auto-extract Keywords
-          </button>
         </div>
         </div>
       </main>
@@ -264,32 +253,6 @@ export default {
        }
      });
 
-   // Computed property to highlight keywords in the original text
-   const highlightedOriginalText = computed(() => {
-     if (!note.value.originalText || note.value.keywords.length === 0) {
-       return note.value.originalText;
-     }
-
-     let text = note.value.originalText;
-     const keywords = note.value.keywords.filter(keyword => keyword.trim() !== '');
-
-     if (keywords.length === 0) {
-       return text;
-     }
-
-     // Sort keywords by length (longest first) to handle overlapping keywords
-     const sortedKeywords = keywords.sort((a, b) => b.length - a.length);
-
-     // Create a regex pattern for all keywords (case-insensitive)
-     const keywordPattern = sortedKeywords.map(keyword =>
-       keyword.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') // Escape special regex characters
-     ).join('|');
-
-     const regex = new RegExp(`(${keywordPattern})`, 'gi');
-
-     // Replace matches with highlighted spans
-     return text.replace(regex, '<span class="keyword-highlight">$1</span>');
-   });
 
    onMounted(async () => {
       try {
@@ -350,7 +313,14 @@ export default {
         // Check if user is authenticated
         const userData = localStorage.getItem('user');
         if (!userData) {
-          alert('You must be logged in to save notes. Please log in and try again.');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'error',
+              title: 'Authentication Required',
+              message: 'You must be logged in to save notes. Please log in and try again.',
+              icon: ['fas', 'exclamation-circle']
+            }
+          }));
           router.push('/login');
           return;
         }
@@ -360,7 +330,14 @@ export default {
           user = JSON.parse(userData);
         } catch (e) {
           console.error('Invalid user data in localStorage:', e);
-          alert('Authentication data is corrupted. Please log in again.');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'error',
+              title: 'Authentication Error',
+              message: 'Authentication data is corrupted. Please log in again.',
+              icon: ['fas', 'exclamation-circle']
+            }
+          }));
           localStorage.removeItem('user');
           localStorage.removeItem('token');
           router.push('/login');
@@ -368,27 +345,45 @@ export default {
         }
 
         if (!user || !user.id) {
-          alert('Invalid user session. Please log in again.');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'error',
+              title: 'Invalid Session',
+              message: 'Invalid user session. Please log in again.',
+              icon: ['fas', 'exclamation-circle']
+            }
+          }));
           router.push('/login');
           return;
         }
 
         if (!note.value.title.trim()) {
-          alert('Please enter a title for your note.');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'warning',
+              title: 'Missing Title',
+              message: 'Please enter a title for your note.',
+              icon: ['fas', 'exclamation-triangle']
+            }
+          }));
           return;
         }
 
         if (!note.value.originalText.trim()) {
-          alert('Please add some content to your note.');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'warning',
+              title: 'Missing Content',
+              message: 'Please add some content to your note.',
+              icon: ['fas', 'exclamation-triangle']
+            }
+          }));
           return;
         }
 
         // Set saving state
         isSaving.value = true;
         console.log('✅ Saving state set to true');
-
-        // Update last edited timestamp
-        note.value.lastEdited = new Date().toLocaleString();
 
         // Prepare note data for API
         const noteData = {
@@ -419,7 +414,14 @@ export default {
 
           if (response.data.success) {
             console.log('✅ Note updated successfully!');
-            alert('Note updated successfully!');
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'success',
+                title: 'Note Updated',
+                message: 'Note updated successfully!',
+                icon: ['fas', 'check-circle']
+              }
+            }));
             router.push('/notes?refresh=true');
           } else {
             throw new Error(response.data.error || 'Failed to update note');
@@ -433,7 +435,14 @@ export default {
           if (response.data.success) {
             console.log('✅ Note created successfully with ID:', response.data.note_id || response.data.data?.note_id);
             note.value.id = response.data.note_id || response.data.data?.note_id;
-            alert('Note saved successfully!');
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'success',
+                title: 'Note Saved',
+                message: 'Note saved successfully!',
+                icon: ['fas', 'check-circle']
+              }
+            }));
             router.push('/notes?refresh=true');
           } else {
             throw new Error(response.data.error || 'Failed to save note');
@@ -457,7 +466,14 @@ export default {
           errorMessage = error.message;
         }
 
-        alert(errorMessage);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Save Failed',
+            message: errorMessage,
+            icon: ['fas', 'exclamation-circle']
+          }
+        }));
       } finally {
         // Reset saving state
         isSaving.value = false;
@@ -466,7 +482,14 @@ export default {
 
     const generateSummary = async () => {
       if (!note.value.originalText.trim()) {
-        alert('Please add some text to summarize first.');
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'No Content',
+            message: 'Please add some text to summarize first.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }));
         return;
       }
 
@@ -483,9 +506,23 @@ export default {
             if (noteResponse.data.success) {
               note.value.summary = noteResponse.data.data.summary;
             }
-            alert('Summary generated successfully!');
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'success',
+                title: 'Summary Generated',
+                message: 'Summary generated successfully!',
+                icon: ['fas', 'check-circle']
+              }
+            }));
           } else {
-            alert('Failed to generate summary: ' + (response.data.error || 'Unknown error'));
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'error',
+                title: 'Generation Failed',
+                message: 'Failed to generate summary: ' + (response.data.error || 'Unknown error'),
+                icon: ['fas', 'exclamation-circle']
+              }
+            }));
           }
         } else {
           // For new notes, use the direct GPT service
@@ -494,9 +531,23 @@ export default {
           console.log('GPT Summary API response:', response);
           if (response.data) {
             note.value.summary = response.data;
-            alert('Summary generated successfully!');
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'success',
+                title: 'Summary Generated',
+                message: 'Summary generated successfully!',
+                icon: ['fas', 'check-circle']
+              }
+            }));
           } else {
-            alert('Failed to generate summary. Please try again.');
+            window.dispatchEvent(new CustomEvent('show-toast', {
+              detail: {
+                type: 'error',
+                title: 'Generation Failed',
+                message: 'Failed to generate summary. Please try again.',
+                icon: ['fas', 'exclamation-circle']
+              }
+            }));
           }
         }
       } catch (error) {
@@ -517,7 +568,14 @@ export default {
           errorMessage = 'Network error: ' + error.message;
         }
 
-        alert(errorMessage);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Summary Error',
+            message: errorMessage,
+            icon: ['fas', 'exclamation-circle']
+          }
+        }));
       } finally {
         generatingSummary.value = false;
       }
@@ -534,21 +592,6 @@ export default {
       note.value.keywords.splice(index, 1);
     };
 
-    const extractKeywords = () => {
-      console.log('Extracting keywords from text');
-      // In a real app, you would call the GPT API here
-      // For now, we'll simulate it
-
-      // Simulate API delay
-      setTimeout(() => {
-        const extractedKeywords = ['Membrane', 'Cytoplasm', 'Organelles', 'Nucleus'];
-        extractedKeywords.forEach(keyword => {
-          if (!note.value.keywords.includes(keyword)) {
-            note.value.keywords.push(keyword);
-          }
-        });
-      }, 1000);
-    };
 
     const generateQuiz = () => {
       console.log('Generating quiz with difficulty:', quizDifficulty.value, 'and', quizQuestionCount.value, 'questions');
@@ -600,7 +643,14 @@ export default {
         }
       });
 
-      alert(`You got ${correctCount} out of ${quizQuestions.value.length} questions correct!`);
+      window.dispatchEvent(new CustomEvent('show-toast', {
+        detail: {
+          type: 'info',
+          title: 'Quiz Results',
+          message: `You got ${correctCount} out of ${quizQuestions.value.length} questions correct!`,
+          icon: ['fas', 'chart-bar']
+        }
+      }));
     };
 
     const resetQuiz = () => {
@@ -611,7 +661,14 @@ export default {
 
     const exportNote = async (format) => {
       if (!note.value || !note.value.id) {
-        alert('Please save the note first before exporting');
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'Save Required',
+            message: 'Please save the note first before exporting',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }));
         return;
       }
 
@@ -654,11 +711,25 @@ export default {
         window.URL.revokeObjectURL(url);
 
         console.log(`Note exported as ${format} successfully`);
-        alert(`File exported successfully! Check your downloads folder for "${filename}"`);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'success',
+            title: 'Export Successful',
+            message: `File exported successfully! Check your downloads folder for "${filename}"`,
+            icon: ['fas', 'check-circle']
+          }
+        }));
       } catch (error) {
         console.error('Export error:', error);
         console.error('Error details:', error.response || error.message);
-        alert(`Failed to export note as ${format.toUpperCase()}. Please try again. Error: ${error.message}`);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Export Failed',
+            message: `Failed to export note as ${format.toUpperCase()}. Please try again. Error: ${error.message}`,
+            icon: ['fas', 'exclamation-circle']
+          }
+        }));
       }
     };
 
@@ -707,12 +778,10 @@ export default {
       sidebarOpen,
       themeClasses,
       fontSizeClasses,
-      highlightedOriginalText,
       saveNote,
       generateSummary,
       addKeyword,
       removeKeyword,
-      extractKeywords,
       generateQuiz,
       checkQuizAnswers,
       resetQuiz,
@@ -728,15 +797,3 @@ export default {
   }
 }
 </script>
-
-<style scoped>
-.keyword-highlight {
-  background-color: rgba(59, 130, 246, 0.3);
-  color: #fbbf24;
-  padding: 2px 4px;
-  border-radius: 3px;
-  font-weight: 600;
-  border: 1px solid rgba(59, 130, 246, 0.5);
-  box-shadow: 0 0 0 1px rgba(59, 130, 246, 0.2);
-}
-</style>

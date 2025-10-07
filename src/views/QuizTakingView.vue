@@ -549,13 +549,14 @@ export default {
       // Force reactivity update
       quizQuestions.value = [...quizQuestions.value]
 
-      alert(`Debug Stats:
-Total: ${quizQuestions.value.length}
-Answered: ${answeredQuestionsCount.value}
-Correct: ${getCorrectAnswersCount()}
-Incorrect: ${getIncorrectAnswersCount()}
-Accuracy: ${getCurrentAccuracy()}%
-Unanswered: ${getUnansweredQuestionsCount()}`)
+      window.dispatchEvent(new CustomEvent('show-toast', {
+        detail: {
+          type: 'info',
+          title: 'Debug Stats',
+          message: `Total: ${quizQuestions.value.length}, Answered: ${answeredQuestionsCount.value}, Correct: ${getCorrectAnswersCount()}, Incorrect: ${getIncorrectAnswersCount()}, Accuracy: ${getCurrentAccuracy()}%, Unanswered: ${getUnansweredQuestionsCount()}`,
+          icon: ['fas', 'info-circle']
+        }
+      }))
     }
 
     // Methods
@@ -699,7 +700,14 @@ Unanswered: ${getUnansweredQuestionsCount()}`)
       console.log('checkAnswers called')
       if (!allQuestionsAnswered.value) {
         console.log('Not all questions answered')
-        alert('Please answer all questions before submitting.')
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'Incomplete Quiz',
+            message: 'Please answer all questions before submitting.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }))
         return
       }
 

@@ -154,38 +154,6 @@ class GoalController {
         }
     }
 
-    public function updateProgress($id) {
-        $userId = $this->getUserIdFromHeader();
-
-        if (!$userId) {
-            http_response_code(401);
-            echo json_encode([
-                "success" => false,
-                "error" => "Unauthorized"
-            ]);
-            return;
-        }
-
-        $data = json_decode(file_get_contents('php://input'), true);
-
-        if (!isset($data['current_value'])) {
-            http_response_code(400);
-            echo json_encode(['success' => false, 'error' => 'Missing current_value']);
-            return;
-        }
-
-        if ($this->goal->updateProgress($id, $userId, $data['current_value'])) {
-            echo json_encode([
-                "success" => true,
-                "message" => "Goal progress updated successfully"
-            ]);
-        } else {
-            echo json_encode([
-                "success" => false,
-                "error" => "Failed to update goal progress"
-            ]);
-        }
-    }
 
     public function getStats() {
         $userId = $this->getUserIdFromHeader();
@@ -200,13 +168,17 @@ class GoalController {
         }
 
         $activeGoals = $this->goal->getActiveGoalsCount($userId);
-        $completedGoals = $this->goal->getCompletedGoalsThisMonth($userId);
+        $completedGoalsThisMonth = $this->goal->getCompletedGoalsThisMonth($userId);
+        $totalGoals = $this->goal->getTotalGoalsCount($userId);
+        $completedGoals = $this->goal->getCompletedGoalsCount($userId);
+        $successRate = $totalGoals > 0 ? round(($completedGoals / $totalGoals) * 100, 2) : 0;
 
         echo json_encode([
             "success" => true,
             "data" => [
                 "activeGoals" => $activeGoals,
-                "completedGoals" => $completedGoals
+                "completedGoals" => $completedGoalsThisMonth,
+                "successRate" => $successRate
             ]
         ]);
     }

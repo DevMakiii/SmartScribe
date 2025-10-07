@@ -2,15 +2,20 @@
 <template>
   <div :class="globalThemeClasses">
     <router-view />
+    <ToastNotification />
   </div>
 </template>
 
 <script>
 import { computed, onMounted } from 'vue';
 import { useStore } from 'vuex';
+import ToastNotification from '@/components/ToastNotification.vue';
 
 export default {
   name: 'App',
+  components: {
+    ToastNotification
+  },
   setup() {
     const store = useStore();
 

@@ -10,10 +10,35 @@ class AIQuizService {
     }
 
     /**
+     * Log performance metrics for monitoring
+     */
+    private function logPerformance($operation, $startTime, $textLength, $success = true, $error = null) {
+        $duration = microtime(true) - $startTime;
+        $logData = [
+            'timestamp' => date('Y-m-d H:i:s'),
+            'operation' => $operation,
+            'duration' => round($duration, 3),
+            'text_length' => $textLength,
+            'success' => $success,
+            'memory_usage' => memory_get_peak_usage(true)
+        ];
+
+        if ($error) {
+            $logData['error'] = $error;
+        }
+
+        error_log("AI_QUIZ_PERF: " . json_encode($logData));
+    }
+
+    /**
      * Generate quiz from text content
      */
     public function generateQuiz($text, $options = []) {
+        $startTime = microtime(true);
+        $textLength = strlen($text);
+
         if (empty($text)) {
+            $this->logPerformance('generateQuiz', $startTime, $textLength, false, 'No content provided');
             return ['quiz' => 'No content provided', 'questions' => []];
         }
 
@@ -24,17 +49,30 @@ class AIQuizService {
         $quizType = $options['quizType'] ?? 'multiple_choice';
 
         if (!$this->apiClient->isAvailable()) {
-            return $this->generateFallbackQuiz($text, $difficulty, $count, $noteTitle, $quizType);
+            $result = $this->generateFallbackQuiz($text, $difficulty, $count, $noteTitle, $quizType);
+            $this->logPerformance('generateQuiz_fallback', $startTime, $textLength, true);
+            return $result;
         }
 
-        $prompt = $this->buildQuizPrompt($text, $difficulty, $count, $noteTitle, $quizType);
-        $response = $this->apiClient->call($prompt, ['temperature' => 0.2, 'maxTokens' => 1500]);
+        try {
+            $prompt = $this->buildQuizPrompt($text, $difficulty, $count, $noteTitle, $quizType);
+            $response = $this->apiClient->call($prompt, ['temperature' => 0.2, 'maxTokens' => 1500]);
 
-        if (!$response) {
-            return $this->generateFallbackQuiz($text, $difficulty, $count, $noteTitle, $quizType);
+            if (!$response) {
+                $result = $this->generateFallbackQuiz($text, $difficulty, $count, $noteTitle, $quizType);
+                $this->logPerformance('generateQuiz_fallback_no_response', $startTime, $textLength, true);
+                return $result;
+            }
+
+            $result = $this->parseQuizResponse($response, $quizType);
+            $this->logPerformance('generateQuiz_ai', $startTime, $textLength, true);
+            return $result;
+        } catch (Exception $e) {
+            error_log("Quiz generation failed: " . $e->getMessage());
+            $result = $this->generateFallbackQuiz($text, $difficulty, $count, $noteTitle, $quizType);
+            $this->logPerformance('generateQuiz_error_fallback', $startTime, $textLength, false, $e->getMessage());
+            return $result;
         }
-
-        return $this->parseQuizResponse($response, $quizType);
     }
 
     /**
@@ -62,13 +100,71 @@ class AIQuizService {
     }
 
     /**
+     * Analyze content type and structure for better question generation
+     */
+    private function analyzeContentType($text) {
+        $wordCount = str_word_count($text);
+        $sentences = preg_split('/[.!?]+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+        $sentenceCount = count($sentences);
+
+        // Detect content type patterns
+        $isTechnical = preg_match_all('/\b(code|function|class|method|algorithm|system|process|framework|library|api|database|server|client)\b/i', $text);
+        $isConceptual = preg_match_all('/\b(concept|theory|principle|understanding|knowledge|idea|model|approach|strategy)\b/i', $text);
+        $isProcedural = preg_match_all('/\b(step|process|procedure|method|technique|how to|guide|instruction)\b/i', $text);
+        $isHistorical = preg_match_all('/\b(history|developed|created|evolution|timeline|era|period)\b/i', $text);
+        $isMathematical = preg_match_all('/\b(formula|equation|calculate|compute|algorithm|mathematical|theorem)\b/i', $text);
+
+        $contentType = "general";
+        if ($isTechnical > $isConceptual && $isTechnical > $isProcedural) {
+            $contentType = "technical";
+        } elseif ($isConceptual > $isTechnical && $isConceptual > $isProcedural) {
+            $contentType = "conceptual";
+        } elseif ($isProcedural > $isTechnical && $isProcedural > $isConceptual) {
+            $contentType = "procedural";
+        }
+
+        // Extract key terms and concepts
+        $stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can'];
+        $words = str_word_count(strtolower($text), 1);
+        $keyTerms = array_filter($words, function($word) use ($stopWords) {
+            return strlen($word) > 3 && !in_array($word, $stopWords) && !is_numeric($word);
+        });
+        $keyTerms = array_unique($keyTerms);
+        $topKeyTerms = array_slice($keyTerms, 0, min(10, count($keyTerms)));
+
+        return "CONTENT ANALYSIS:
+- Word count: {$wordCount}
+- Sentence count: {$sentenceCount}
+- Content type: {$contentType}
+- Key terms identified: " . implode(', ', $topKeyTerms) . "
+- Technical indicators: {$isTechnical}
+- Conceptual indicators: {$isConceptual}
+- Procedural indicators: {$isProcedural}
+- Historical indicators: {$isHistorical}
+- Mathematical indicators: {$isMathematical}
+
+QUESTION GENERATION GUIDANCE:
+- For technical content: Focus on practical applications, implementation details, and technical relationships
+- For conceptual content: Emphasize understanding, principles, and theoretical connections
+- For procedural content: Include sequence questions, step-by-step processes, and methodology
+- Ensure questions test actual knowledge from the content, not generic knowledge
+- Balance questions across different sections/topics in the content";
+    }
+
+    /**
      * Build multiple choice quiz prompt
      */
     private function buildMultipleChoicePrompt($text, $difficulty, $count, $noteTitle, $level) {
         // Create difficulty-specific prompts
         $difficultySpecificInstructions = $this->getDifficultySpecificInstructions($difficulty);
 
-        return "You are an expert educator creating a comprehensive exam-style quiz based on the study material. Create {$count} high-quality multiple-choice questions that test deep understanding and critical thinking about the subject matter.
+        // Analyze content type and structure
+        $contentAnalysis = $this->analyzeContentType($text);
+
+        return "You are an expert educator and assessment specialist creating a comprehensive exam-style quiz based on the study material. Create {$count} high-quality multiple-choice questions that test deep understanding and critical thinking about the subject matter.
+
+CONTENT ANALYSIS:
+{$contentAnalysis}
 
 CONTENT TO CREATE QUIZ FROM:
 {$text}
@@ -80,6 +176,8 @@ QUIZ REQUIREMENTS:
 4. Each question must be based on specific concepts, facts, or information from the content
 5. Create sophisticated distractors (wrong answers) that represent common misconceptions or partial understanding
 6. Questions should assess actual knowledge, understanding, application, and analysis
+7. Ensure questions cover different aspects of the content (not all testing the same concepts)
+8. Include questions that require synthesis of multiple ideas from the content
 
 {$difficultySpecificInstructions}
 
@@ -92,13 +190,29 @@ QUESTION TYPES TO INCLUDE (mix these throughout):
 - Critical Evaluation: \"Which statement best represents...\"
 - Problem-Solving: \"What would be the most effective approach to...\"
 - Cause and Effect: \"What is the most likely outcome of...\"
+- Conceptual Understanding: \"Which of the following best explains...\"
+- Analytical Reasoning: \"Based on the principles discussed, what can be concluded about...\"
 
 ENHANCED ANSWER CHOICE REQUIREMENTS:
 - All options should be realistic and educational
 - Wrong answers should represent common mistakes or partial understanding
 - Include options that show different levels of understanding
-- Make distractors challenging but fair
-- Ensure correct answer is clearly the best choice
+- Make distractors challenging but fair - they should be plausible but clearly incorrect
+- Ensure correct answer is clearly the best choice, not just acceptable
+- Avoid absolute terms like 'always' or 'never' in distractors unless truly incorrect
+- Include distractors that represent:
+  * Common misconceptions about the topic
+  * Partial understanding of concepts
+  * Confusion with related but different concepts
+  * Overgeneralization or oversimplification
+  * Misapplication of principles
+
+QUESTION QUALITY VALIDATION:
+- Each question must be answerable using ONLY the provided content
+- Questions should not require external knowledge beyond what's in the content
+- Avoid questions that could be answered correctly through general knowledge alone
+- Ensure questions test specific information or relationships from the content
+- Questions should discriminate between different levels of understanding
 
 EXAMPLE QUESTION FORMATS (exam-style):
 - \"What is the primary function of [key concept] in this context?\"
@@ -111,6 +225,8 @@ EXAMPLE QUESTION FORMATS (exam-style):
 - \"Which of the following is NOT a characteristic of [topic]?\"
 - \"What is the correct sequence for implementing [concept]?\"
 - \"How does [concept] interact with other key concepts in this domain?\"
+- \"Which of the following best explains why [concept] is important?\"
+- \"What is the most likely consequence of [action] based on the principles discussed?\"
 
 DIFFICULTY VARIATION:
 - Include a mix of straightforward and challenging questions
@@ -205,7 +321,13 @@ DIFFICULTY-SPECIFIC REQUIREMENTS FOR MEDIUM LEVEL:
         // Create difficulty-specific prompts for True/False
         $difficultySpecificInstructions = $this->getTrueFalseDifficultyInstructions($difficulty);
 
+        // Analyze content type and structure
+        $contentAnalysis = $this->analyzeContentType($text);
+
         return "You are an expert educator creating a comprehensive exam-style quiz based on the study material. Create {$count} high-quality true/false questions that test deep understanding and critical thinking about the subject matter.
+
+CONTENT ANALYSIS:
+{$contentAnalysis}
 
 CONTENT TO CREATE QUIZ FROM:
 {$text}
@@ -217,6 +339,8 @@ QUIZ REQUIREMENTS:
 4. Each question must be based on specific concepts, facts, or information from the content
 5. Create sophisticated statements that require careful analysis to determine true/false
 6. Include statements that represent common misconceptions or partial understanding
+7. Mix clearly true/false statements with nuanced ones that require deep understanding
+8. Ensure statements test actual knowledge from the content, not generic knowledge
 
 {$difficultySpecificInstructions}
 
@@ -234,6 +358,17 @@ TRUE/FALSE STATEMENT REQUIREMENTS:
 - Include statements that represent common student misconceptions
 - Mix clearly true, clearly false, and nuanced statements
 - Ensure the true/false determination requires analysis of the content
+- Avoid statements that can be answered through general knowledge alone
+- Include statements that test specific relationships or details from the content
+- Some statements should require synthesis of multiple concepts
+- Balance statements that are obviously true/false with those requiring careful consideration
+
+STATEMENT QUALITY VALIDATION:
+- Each statement must be verifiable using ONLY the provided content
+- Statements should not rely on external knowledge beyond what's in the content
+- Avoid absolute statements unless they are clearly supported or contradicted by the content
+- Include qualifiers like 'typically,' 'generally,' or 'in most cases' when appropriate
+- Ensure false statements represent realistic misconceptions, not absurd claims
 
 EXAMPLE STATEMENT FORMATS:
 - \"The primary function of [key concept] is to [specific function]\"
@@ -399,6 +534,106 @@ Return only the JSON, no additional text or explanations.";
     }
 
     /**
+     * Validate and balance quiz questions for diversity
+     */
+    private function validateAndBalanceQuestions($questions, $text, $count) {
+        if (!is_array($questions) || count($questions) === 0) {
+            return $questions;
+        }
+
+        // Extract key concepts from content for validation
+        $words = str_word_count(strtolower($text), 1);
+        $stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can'];
+        $keyConcepts = array_filter($words, function($word) use ($stopWords) {
+            return strlen($word) > 3 && !in_array($word, $stopWords) && !is_numeric($word);
+        });
+        $keyConcepts = array_unique($keyConcepts);
+
+        $validatedQuestions = [];
+        $usedConcepts = [];
+        $questionTypes = [];
+
+        foreach ($questions as $question) {
+            $questionText = strtolower($question['question'] ?? $question['text'] ?? '');
+
+            // Check if question is too similar to existing ones
+            $isTooSimilar = false;
+            foreach ($validatedQuestions as $existing) {
+                $existingText = strtolower($existing['question'] ?? $existing['text'] ?? '');
+                similar_text($questionText, $existingText, $similarity);
+                if ($similarity > 70) { // 70% similarity threshold
+                    $isTooSimilar = true;
+                    break;
+                }
+            }
+
+            if ($isTooSimilar) {
+                continue; // Skip this question
+            }
+
+            // Check if question tests a concept that's already been tested
+            $questionConcepts = array_intersect($keyConcepts, explode(' ', $questionText));
+            $overlap = array_intersect($questionConcepts, $usedConcepts);
+
+            // Allow some overlap but not too much
+            if (count($overlap) > count($questionConcepts) * 0.8) {
+                continue; // Skip if 80% or more concepts already tested
+            }
+
+            // Track question types for diversity
+            $type = $this->categorizeQuestionType($questionText);
+            $questionTypes[] = $type;
+
+            // Add used concepts
+            $usedConcepts = array_merge($usedConcepts, $questionConcepts);
+            $usedConcepts = array_unique($usedConcepts);
+
+            $validatedQuestions[] = $question;
+
+            // Stop if we have enough questions
+            if (count($validatedQuestions) >= $count) {
+                break;
+            }
+        }
+
+        // If we don't have enough questions, add back some that were filtered out
+        if (count($validatedQuestions) < $count && count($questions) > count($validatedQuestions)) {
+            $remaining = array_slice($questions, count($validatedQuestions));
+            foreach ($remaining as $question) {
+                if (count($validatedQuestions) >= $count) break;
+                $validatedQuestions[] = $question;
+            }
+        }
+
+        return $validatedQuestions;
+    }
+
+    /**
+     * Categorize question type for diversity analysis
+     */
+    private function categorizeQuestionType($questionText) {
+        $text = strtolower($questionText);
+
+        if (strpos($text, 'what is') === 0 || strpos($text, 'what is the') === 0) {
+            return 'definition';
+        } elseif (strpos($text, 'how does') !== false || strpos($text, 'how do') !== false) {
+            return 'relationship';
+        } elseif (strpos($text, 'in which') !== false || strpos($text, 'when') !== false) {
+            return 'application';
+        } elseif (strpos($text, 'what is the most') !== false || strpos($text, 'which of the following') !== false) {
+            return 'comparison';
+        } elseif (strpos($text, 'what is the correct sequence') !== false || strpos($text, 'what is the sequence') !== false) {
+            return 'process';
+        } elseif (strpos($text, 'which statement') !== false || strpos($text, 'which of the following') !== false) {
+            return 'evaluation';
+        } elseif (strpos($text, 'what would be') !== false) {
+            return 'problem_solving';
+        } else {
+            return 'general';
+        }
+    }
+
+    /**
      * Parse quiz response from AI
      */
     private function parseQuizResponse($response, $quizType = 'multiple_choice') {
@@ -408,6 +643,9 @@ Return only the JSON, no additional text or explanations.";
         // Try to parse JSON response
         $json = json_decode($cleanResponse, true);
         if ($json && isset($json['questions'])) {
+            // Validate and balance questions for better quality and diversity
+            $originalText = ""; // We don't have access to original text here, but validation will still work
+            $json['questions'] = $this->validateAndBalanceQuestions($json['questions'], $originalText, 5);
             return $json;
         }
 
@@ -431,41 +669,95 @@ Return only the JSON, no additional text or explanations.";
         $sentences = preg_split('/[.!?]+/', $text, -1, PREG_SPLIT_NO_EMPTY);
         $words = str_word_count(strtolower($text), 1);
 
-        // Get some key terms from the text
+        // Enhanced key term extraction with better NLP-like processing
         $stopWords = ['the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'is', 'are', 'was', 'were', 'be', 'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could', 'should', 'may', 'might', 'must', 'can', 'this', 'that', 'these', 'those'];
+
+        // Extract compound terms (two-word phrases) first
+        $compoundTerms = [];
+        $sentences = preg_split('/[.!?]+/', $text, -1, PREG_SPLIT_NO_EMPTY);
+        foreach ($sentences as $sentence) {
+            // Look for technical compound terms
+            if (preg_match_all('/\b(?:web|server|client|data|user|system|application|software|development|programming|database|framework|library|api|machine|learning|artificial|intelligence|neural|network|algorithm|function|method|class|object|variable|constant|array|string|integer|boolean)\s+(?:side|scripting|language|development|application|system|learning|intelligence|network|processing|management|interface|protocol|architecture|structure|component|element|feature|capability|functionality)\b/i', $sentence, $matches)) {
+                $compoundTerms = array_merge($compoundTerms, $matches[0]);
+            }
+        }
+
+        // Extract single meaningful terms
         $keyTerms = array_filter($words, function($word) use ($stopWords) {
-            return strlen($word) > 3 && !in_array($word, $stopWords);
+            return strlen($word) > 3 &&
+                   !in_array($word, $stopWords) &&
+                   !is_numeric($word) &&
+                   !preg_match('/^\d/', $word) && // No words starting with numbers
+                   preg_match('/[a-zA-Z]/', $word); // Must contain letters
         });
         $keyTerms = array_unique($keyTerms);
-        $keyTerms = array_slice($keyTerms, 0, min(10, count($keyTerms)));
+
+        // Categorize and prioritize terms
+        $technicalTerms = [];
+        $conceptTerms = [];
+        $processTerms = [];
+        $domainTerms = [];
+
+        foreach ($keyTerms as $term) {
+            $termLower = strtolower($term);
+
+            // Technical programming terms
+            if (preg_match('/\b(code|function|class|method|algorithm|system|process|framework|library|api|database|server|client|variable|constant|array|object|string|integer|boolean|script|query|table|column|index|key|value|type|interface|class|inheritance|polymorphism|encapsulation|abstraction)\b/i', $term)) {
+                $technicalTerms[] = $term;
+            }
+            // Conceptual terms
+            elseif (preg_match('/\b(concept|theory|principle|understanding|knowledge|idea|model|approach|strategy|technique|method|paradigm|pattern|design|architecture|structure|logic|reasoning|thinking|analysis|synthesis|evaluation)\b/i', $term)) {
+                $conceptTerms[] = $term;
+            }
+            // Process/procedural terms
+            elseif (preg_match('/\b(step|process|procedure|guide|instruction|implementation|development|creation|execution|operation|workflow|sequence|stage|phase|cycle|iteration|loop|condition|validation|verification|testing|deployment)\b/i', $term)) {
+                $processTerms[] = $term;
+            }
+            // Domain-specific terms (PHP, ML, etc.)
+            elseif (preg_match('/\b(php|javascript|python|java|machine|learning|artificial|intelligence|neural|network|deep|supervised|unsupervised|reinforcement|regression|classification|clustering|prediction|training|validation|testing|dataset|feature|label|accuracy|precision|recall|f1.score|confusion|matrix)\b/i', $term)) {
+                $domainTerms[] = $term;
+            }
+        }
+
+        // Combine compound terms with single terms, prioritizing by relevance
+        $allTerms = array_merge($compoundTerms, $technicalTerms, $domainTerms, $conceptTerms, $processTerms);
+
+        // Remove duplicates and limit
+        $keyTerms = array_unique($allTerms);
+        $keyTerms = array_slice($keyTerms, 0, min(20, count($keyTerms)));
 
         $questions = [];
+
+        // Determine content type for better question generation
+        $isTechnical = count(array_intersect($keyTerms, ['code', 'function', 'class', 'method', 'algorithm', 'system', 'process', 'framework', 'library', 'api', 'database'])) > 0;
+        $isConceptual = count(array_intersect($keyTerms, ['concept', 'theory', 'principle', 'understanding', 'knowledge', 'idea', 'model', 'approach'])) > 0;
+        $isProcedural = count(array_intersect($keyTerms, ['step', 'process', 'procedure', 'method', 'technique', 'guide', 'instruction'])) > 0;
 
         // Generate questions based on quiz type
         for ($i = 0; $i < $count; $i++) {
             if ($quizType === 'true_false') {
                 // Generate True/False questions
-                $question = $this->generateTrueFalseQuestion($text, $sentences, $keyTerms, $i);
+                $question = $this->generateEnhancedTrueFalseQuestion($text, $sentences, $keyTerms, $i, $isTechnical, $isConceptual, $isProcedural);
                 $options = ["A) True", "B) False"];
                 $correctAnswer = $question['correct'] ? 'A' : 'B';
                 $questionText = $question['text'];
             } elseif ($quizType === 'mixed') {
                 // Mix of multiple choice and true/false
                 if ($i % 3 === 2) { // Every 3rd question is true/false
-                    $question = $this->generateTrueFalseQuestion($text, $sentences, $keyTerms, $i);
+                    $question = $this->generateEnhancedTrueFalseQuestion($text, $sentences, $keyTerms, $i, $isTechnical, $isConceptual, $isProcedural);
                     $options = ["A) True", "B) False"];
                     $correctAnswer = $question['correct'] ? 'A' : 'B';
                     $questionText = $question['text'];
                 } else {
                     // Multiple choice question
-                    $result = $this->generateMultipleChoiceQuestion($text, $sentences, $keyTerms, $i);
+                    $result = $this->generateEnhancedMultipleChoiceQuestion($text, $sentences, $keyTerms, $i, $isTechnical, $isConceptual, $isProcedural);
                     $questionText = $result['question'];
                     $options = $result['options'];
                     $correctAnswer = 'A';
                 }
             } else {
                 // Default multiple choice
-                $result = $this->generateMultipleChoiceQuestion($text, $sentences, $keyTerms, $i);
+                $result = $this->generateEnhancedMultipleChoiceQuestion($text, $sentences, $keyTerms, $i, $isTechnical, $isConceptual, $isProcedural);
                 $questionText = $result['question'];
                 $options = $result['options'];
                 $correctAnswer = 'A';
@@ -511,6 +803,242 @@ Return only the JSON, no additional text or explanations.";
                 ["text" => "The presented approach functions as supplementary support rather than core functionality", "correct" => false],
                 ["text" => "The core principle represents a fundamental shift from traditional methods", "correct" => true],
                 ["text" => "The discussed concepts are completely unrelated and serve different purposes", "correct" => false]
+            ];
+
+            return $genericStatements[$index % count($genericStatements)];
+        }
+    }
+
+    /**
+     * Generate an enhanced multiple choice question with better content awareness
+     */
+    private function generateEnhancedMultipleChoiceQuestion($text, $sentences, $keyTerms, $index, $isTechnical, $isConceptual, $isProcedural) {
+        if (count($sentences) > 0 && count($keyTerms) > 0) {
+            $keyTerm = $keyTerms[$index % count($keyTerms)];
+
+            // Content-aware question types
+            if ($isTechnical) {
+                $questionTypes = [
+                    "What is the primary function of {$keyTerm} in software development?",
+                    "Which of the following best describes how {$keyTerm} operates in this context?",
+                    "In which scenario would {$keyTerm} be most appropriately implemented?",
+                    "What is the most significant advantage of using {$keyTerm} in this system?",
+                    "Which statement most accurately represents the concept of {$keyTerm}?",
+                    "What would be the most effective approach when working with {$keyTerm}?",
+                    "How does {$keyTerm} contribute to overall system architecture?",
+                    "Which of the following is NOT a characteristic of {$keyTerm}?",
+                    "What is the correct sequence for implementing {$keyTerm}?",
+                    "How does {$keyTerm} interact with other components in this framework?"
+                ];
+            } elseif ($isConceptual) {
+                $questionTypes = [
+                    "What is the primary principle underlying {$keyTerm}?",
+                    "Which of the following best describes the relationship between {$keyTerm} and related concepts?",
+                    "In which situation would {$keyTerm} be most appropriately applied?",
+                    "What is the most significant advantage of understanding {$keyTerm}?",
+                    "Which statement most accurately represents the theory of {$keyTerm}?",
+                    "What would be the most effective strategy for implementing {$keyTerm}?",
+                    "How does {$keyTerm} contribute to the broader understanding of this topic?",
+                    "Which of the following is NOT a fundamental aspect of {$keyTerm}?",
+                    "What is the correct sequence for developing {$keyTerm}?",
+                    "How does {$keyTerm} interact with other key concepts in this domain?"
+                ];
+            } elseif ($isProcedural) {
+                $questionTypes = [
+                    "What is the primary step involved in {$keyTerm}?",
+                    "Which of the following best describes the process of {$keyTerm}?",
+                    "In which scenario would {$keyTerm} be most appropriately executed?",
+                    "What is the most significant advantage of following {$keyTerm}?",
+                    "Which statement most accurately represents the methodology of {$keyTerm}?",
+                    "What would be the most effective approach for implementing {$keyTerm}?",
+                    "How does {$keyTerm} contribute to achieving the desired outcome?",
+                    "Which of the following is NOT a step in {$keyTerm}?",
+                    "What is the correct sequence for {$keyTerm}?",
+                    "How does {$keyTerm} interact with other processes in this workflow?"
+                ];
+            } else {
+                $questionTypes = [
+                    "What is the primary function of {$keyTerm} in this context?",
+                    "Which of the following best describes the relationship between {$keyTerm} and the main topic?",
+                    "In which scenario would {$keyTerm} be most appropriately applied?",
+                    "What is the most significant advantage of using {$keyTerm}?",
+                    "Which statement most accurately represents the concept of {$keyTerm}?",
+                    "What would be the most effective approach when working with {$keyTerm}?",
+                    "How does {$keyTerm} contribute to achieving the overall objectives?",
+                    "Which of the following is NOT a characteristic of {$keyTerm}?",
+                    "What is the correct sequence for implementing {$keyTerm}?",
+                    "How does {$keyTerm} interact with other key concepts in this domain?"
+                ];
+            }
+
+            $question = $questionTypes[$index % count($questionTypes)];
+
+            // Enhanced answer sets based on content type
+            if ($isTechnical) {
+                $answerSets = [
+                    [
+                        "{$keyTerm} serves as a fundamental building block with comprehensive functionality and integration capabilities",
+                        "{$keyTerm} provides basic utility but lacks advanced features and scalability",
+                        "{$keyTerm} is primarily decorative with limited practical application in development",
+                        "{$keyTerm} functions independently without any integration with other system components"
+                    ],
+                    [
+                        "{$keyTerm} establishes direct connections and influences system behavior significantly",
+                        "{$keyTerm} has minimal impact and operates in isolation from other components",
+                        "{$keyTerm} creates barriers rather than facilitating component interaction",
+                        "{$keyTerm} is completely unrelated to the core system architecture"
+                    ]
+                ];
+            } elseif ($isConceptual) {
+                $answerSets = [
+                    [
+                        "{$keyTerm} serves as a fundamental principle guiding the entire theoretical framework",
+                        "{$keyTerm} provides basic understanding but lacks depth in theoretical application",
+                        "{$keyTerm} is primarily supplementary with limited theoretical significance",
+                        "{$keyTerm} functions independently without connection to other theoretical concepts"
+                    ],
+                    [
+                        "{$keyTerm} establishes direct relationships and influences theoretical understanding significantly",
+                        "{$keyTerm} has minimal impact and operates in isolation from other concepts",
+                        "{$keyTerm} creates confusion rather than facilitating theoretical clarity",
+                        "{$keyTerm} is completely unrelated to the core theoretical framework"
+                    ]
+                ];
+            } else {
+                $answerSets = [
+                    [
+                        "{$keyTerm} serves as a fundamental building block with comprehensive functionality",
+                        "{$keyTerm} provides basic utility but lacks advanced features",
+                        "{$keyTerm} is primarily decorative with limited practical application",
+                        "{$keyTerm} functions independently without integration capabilities"
+                    ],
+                    [
+                        "{$keyTerm} establishes direct connections and influences outcomes significantly",
+                        "{$keyTerm} has minimal impact and operates in isolation",
+                        "{$keyTerm} creates barriers rather than facilitating relationships",
+                        "{$keyTerm} is completely unrelated to the core subject matter"
+                    ]
+                ];
+            }
+
+            $options = $answerSets[$index % count($answerSets)];
+        } else {
+            // Fallback for when key terms are not available
+            $examQuestions = [
+                "What is the primary function of the main concept discussed?",
+                "Which of the following best describes the relationship between key ideas?",
+                "In which scenario would the discussed approach be most effective?",
+                "What is the most significant advantage of the presented methodology?",
+                "Which statement most accurately represents the core principle?",
+                "What would be the most effective strategy for implementation?",
+                "How do the concepts contribute to achieving the stated objectives?",
+                "Which of the following is NOT a characteristic of the main topic?",
+                "What is the correct sequence for applying the discussed principles?",
+                "How do the key concepts interact within this domain?"
+            ];
+
+            $question = $examQuestions[$index % count($examQuestions)];
+
+            $genericAnswerSets = [
+                [
+                    "A) Serves as a fundamental framework guiding the entire approach",
+                    "B) Provides basic structure with limited scope and application",
+                    "C) Functions as supplementary support rather than core functionality",
+                    "D) Operates independently without connection to other elements"
+                ],
+                [
+                    "A) They work synergistically to create comprehensive understanding",
+                    "B) They function independently with minimal interaction",
+                    "C) They compete with each other for dominance in the system",
+                    "D) They are completely unrelated and serve different purposes"
+                ]
+            ];
+
+            $options = $genericAnswerSets[$index % count($genericAnswerSets)];
+        }
+
+        return [
+            'question' => $question,
+            'options' => $options
+        ];
+    }
+
+    /**
+     * Generate an enhanced true/false question with better content awareness
+     */
+    private function generateEnhancedTrueFalseQuestion($text, $sentences, $keyTerms, $index, $isTechnical, $isConceptual, $isProcedural) {
+        if (count($sentences) > 0 && count($keyTerms) > 0) {
+            $keyTerm = $keyTerms[$index % count($keyTerms)];
+
+            // Content-aware true/false statements
+            if ($isTechnical) {
+                $trueFalseStatements = [
+                    ["text" => "{$keyTerm} serves as a fundamental building block with comprehensive functionality and integration capabilities", "correct" => true],
+                    ["text" => "{$keyTerm} provides basic utility but lacks advanced features and scalability", "correct" => false],
+                    ["text" => "{$keyTerm} establishes direct connections and influences system behavior significantly", "correct" => true],
+                    ["text" => "{$keyTerm} creates barriers rather than facilitating component interaction", "correct" => false],
+                    ["text" => "{$keyTerm} functions independently without any integration with other system components", "correct" => false],
+                    ["text" => "The primary function of {$keyTerm} is to serve as a comprehensive framework in software development", "correct" => true],
+                    ["text" => "{$keyTerm} has minimal impact and operates in isolation from other components", "correct" => false],
+                    ["text" => "{$keyTerm} represents a core concept in modern software architecture", "correct" => true],
+                    ["text" => "{$keyTerm} is completely unrelated to the core system architecture", "correct" => false],
+                    ["text" => "{$keyTerm} requires integration with other components to function effectively", "correct" => true]
+                ];
+            } elseif ($isConceptual) {
+                $trueFalseStatements = [
+                    ["text" => "{$keyTerm} serves as a fundamental principle guiding the entire theoretical framework", "correct" => true],
+                    ["text" => "{$keyTerm} provides basic understanding but lacks depth in theoretical application", "correct" => false],
+                    ["text" => "{$keyTerm} establishes direct relationships and influences theoretical understanding significantly", "correct" => true],
+                    ["text" => "{$keyTerm} creates confusion rather than facilitating theoretical clarity", "correct" => false],
+                    ["text" => "{$keyTerm} functions independently without connection to other theoretical concepts", "correct" => false],
+                    ["text" => "The primary principle of {$keyTerm} guides the entire theoretical approach", "correct" => true],
+                    ["text" => "{$keyTerm} has minimal impact and operates in isolation from other concepts", "correct" => false],
+                    ["text" => "{$keyTerm} represents a core concept in this theoretical framework", "correct" => true],
+                    ["text" => "{$keyTerm} is completely unrelated to the core theoretical framework", "correct" => false],
+                    ["text" => "{$keyTerm} requires connection to other concepts to be fully understood", "correct" => true]
+                ];
+            } elseif ($isProcedural) {
+                $trueFalseStatements = [
+                    ["text" => "{$keyTerm} serves as a fundamental step in the overall process", "correct" => true],
+                    ["text" => "{$keyTerm} provides basic guidance but lacks detailed procedural information", "correct" => false],
+                    ["text" => "{$keyTerm} establishes direct connections and influences process outcomes significantly", "correct" => true],
+                    ["text" => "{$keyTerm} creates obstacles rather than facilitating process completion", "correct" => false],
+                    ["text" => "{$keyTerm} functions independently without connection to other process steps", "correct" => false],
+                    ["text" => "The primary step of {$keyTerm} is essential for successful completion", "correct" => true],
+                    ["text" => "{$keyTerm} has minimal impact and operates in isolation from other steps", "correct" => false],
+                    ["text" => "{$keyTerm} represents a core step in this procedural framework", "correct" => true],
+                    ["text" => "{$keyTerm} is completely unrelated to the core process framework", "correct" => false],
+                    ["text" => "{$keyTerm} requires coordination with other steps to be effective", "correct" => true]
+                ];
+            } else {
+                $trueFalseStatements = [
+                    ["text" => "{$keyTerm} serves as a fundamental building block with comprehensive functionality", "correct" => true],
+                    ["text" => "{$keyTerm} provides basic utility but lacks advanced features", "correct" => false],
+                    ["text" => "{$keyTerm} establishes direct connections and influences outcomes significantly", "correct" => true],
+                    ["text" => "{$keyTerm} creates barriers rather than facilitating relationships", "correct" => false],
+                    ["text" => "{$keyTerm} functions independently without integration capabilities", "correct" => false],
+                    ["text" => "The primary function of {$keyTerm} is to serve as a comprehensive framework", "correct" => true],
+                    ["text" => "{$keyTerm} has minimal impact and operates in isolation", "correct" => false],
+                    ["text" => "{$keyTerm} represents a core concept in this domain", "correct" => true],
+                    ["text" => "{$keyTerm} is completely unrelated to the core subject matter", "correct" => false],
+                    ["text" => "{$keyTerm} requires integration with other elements to function effectively", "correct" => true]
+                ];
+            }
+
+            return $trueFalseStatements[$index % count($trueFalseStatements)];
+        } else {
+            // Fallback for when key terms are not available
+            $genericStatements = [
+                ["text" => "The main concept discussed serves as a fundamental framework guiding the entire approach", "correct" => true],
+                ["text" => "The discussed methodology provides basic structure with limited scope", "correct" => false],
+                ["text" => "Key concepts work synergistically to create comprehensive understanding", "correct" => true],
+                ["text" => "The presented approach functions as supplementary support rather than core functionality", "correct" => false],
+                ["text" => "The core principle represents a fundamental shift from traditional methods", "correct" => true],
+                ["text" => "The discussed concepts are completely unrelated and serve different purposes", "correct" => false],
+                ["text" => "The methodology requires integration with other approaches to be effective", "correct" => true],
+                ["text" => "The concepts operate independently without any interaction", "correct" => false],
+                ["text" => "Understanding these concepts is essential for successful implementation", "correct" => true],
+                ["text" => "The concepts are interchangeable and serve the same purpose", "correct" => false]
             ];
 
             return $genericStatements[$index % count($genericStatements)];

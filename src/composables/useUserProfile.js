@@ -1,6 +1,7 @@
 // src/composables/useUserProfile.js
 import { ref, computed, watch } from 'vue';
 import api from '@/services/api';
+import { useNotifications } from '@/composables/useNotifications';
 
 // Global reactive state for user profile - shared across all components
 const globalUser = ref(null);
@@ -12,6 +13,9 @@ export function useUserProfile() {
   const user = globalUser;
   const loading = globalLoading;
   const error = globalError;
+
+  // Use notifications for user feedback
+  const { showError } = useNotifications();
 
   // Get profile picture URL
   const getProfilePictureUrl = (profilePicturePath) => {
@@ -53,7 +57,7 @@ export function useUserProfile() {
             firstName: parsedUser.first_name || parsedUser.firstName || '',
             lastName: parsedUser.last_name || parsedUser.lastName || '',
             profilePicture: parsedUser.profile_picture || parsedUser.profilePicture || null,
-            memberSince: parsedUser.created_at ? new Date(parsedUser.created_at).toLocaleDateString() : new Date().toLocaleDateString()
+            memberSince: parsedUser.created_at ? new Date(parsedUser.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() : new Date().toLocaleDateString()
           };
         } catch (parseError) {
           console.error('Error parsing user data from localStorage:', parseError);
@@ -73,7 +77,7 @@ export function useUserProfile() {
             firstName: apiUser.first_name || '',
             lastName: apiUser.last_name || '',
             profilePicture: apiUser.profile_picture || null,
-            memberSince: apiUser.created_at ? new Date(apiUser.created_at).toLocaleDateString() : new Date().toLocaleDateString()
+            memberSince: apiUser.created_at ? new Date(apiUser.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() : new Date().toLocaleDateString()
           };
 
           // Update localStorage with fresh data
@@ -111,6 +115,21 @@ export function useUserProfile() {
       const errorMessage = err.message || 'Network error occurred';
       error.value = errorMessage;
       console.error('Error updating user profile:', err);
+
+      // Check if this is a 409 email conflict error
+      if (err.response && err.response.status === 409 && err.response.data && err.response.data.message === 'Email already taken') {
+        showError(
+          'Email Already in Use',
+          'This email address is already associated with another account. Please choose a different email address.'
+        );
+      } else {
+        // Show generic error for other types of errors
+        showError(
+          'Profile Update Failed',
+          errorMessage
+        );
+      }
+
       return { success: false, error: errorMessage };
     } finally {
       loading.value = false;

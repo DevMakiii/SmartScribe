@@ -243,13 +243,6 @@
 
                   <div class="flex items-center space-x-2 ml-4">
                     <button
-                      @click="updateGoalProgress(goal)"
-                      class="px-3 py-1 bg-green-600 text-white text-sm rounded-md hover:bg-green-700 transition"
-                      title="Update Progress"
-                    >
-                      <font-awesome-icon :icon="['fas', 'plus']" />
-                    </button>
-                    <button
                       @click="editGoal(goal)"
                       class="px-3 py-1 bg-blue-600 text-white text-sm rounded-md hover:bg-blue-700 transition"
                       title="Edit Goal"
@@ -635,28 +628,6 @@ export default {
       }
     }
 
-    const updateGoalProgress = async (goal) => {
-      // Simple progress update - in a real app, you'd have a modal for this
-      const newValue = prompt(`Update progress for "${goal.title}" (current: ${goal.current_value}/${goal.target_value}):`, goal.current_value)
-      if (newValue !== null && !isNaN(newValue)) {
-        try {
-          const response = await api.post(`?resource=goals&action=update-progress&id=${goal.id}`, {
-            progress_value: parseInt(newValue)
-          })
-
-          if (response.data.success) {
-            showSuccess('Progress updated!', 'Your goal progress has been updated.')
-            await loadGoals()
-            await loadGoalStats()
-          } else {
-            showWarning('Failed to update progress', response.data.error || 'Please try again.')
-          }
-        } catch (err) {
-          console.error('Error updating progress:', err)
-          showWarning('Failed to update progress', 'Please try again.')
-        }
-      }
-    }
 
     const confirmDeleteGoal = (goal) => {
       goalToDelete.value = goal
@@ -738,7 +709,6 @@ export default {
       editGoal,
       closeGoalModal,
       saveGoal,
-      updateGoalProgress,
       confirmDeleteGoal,
       cancelDelete,
       proceedDelete,

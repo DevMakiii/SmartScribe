@@ -75,13 +75,15 @@
             </div>
 
             <!-- AI Summary -->
-            <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
-              <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
-                <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">AI Summary</h2>
-                <button @click="generateSummary" class="w-full sm:w-auto px-3 py-2 sm:px-3 sm:py-1 bg-blue-600 rounded text-sm hover:bg-blue-700 transition" :disabled="isGeneratingSummary">
-                  <font-awesome-icon :icon="['fas', 'sync-alt']" class="mr-1" :spin="generatingSummary" /> {{ generatingSummary ? 'Generating...' : 'Generate Summary' }}
-                </button>
-              </div>
+              <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
+                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
+                  <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">AI Summary</h2>
+                  <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
+                    <button @click="generateSummary" class="flex-1 sm:flex-none px-3 py-2 sm:px-3 sm:py-1 bg-blue-600 rounded text-sm hover:bg-blue-700 transition" :disabled="isGeneratingSummary">
+                      <font-awesome-icon :icon="['fas', 'sync-alt']" class="mr-1" :spin="generatingSummary" /> {{ generatingSummary ? 'Generating...' : 'Generate Summary' }}
+                    </button>
+                  </div>
+                </div>
               <div :class="`${themeClasses.input} rounded-lg p-3 sm:p-4 ${themeClasses.text} h-64 sm:h-96 overflow-y-auto overflow-x-hidden text-sm sm:text-base break-words whitespace-pre-line`">
                 {{ note.summary || 'No summary available. Click "Generate Summary" to create one.' }}
               </div>
@@ -180,7 +182,8 @@ export default {
       formattedElapsedTime,
       isActiveSession,
       endStudySession: endSession,
-      setCurrentActivity
+      setCurrentActivity,
+      incrementNotesStudied
     } = useStudyTime();
 
     const note = ref(null);
@@ -344,6 +347,9 @@ export default {
             summary: noteData.summary || 'No summary available',
             keywords: noteData.keywords ? noteData.keywords.split(',').map(k => k.trim()) : []
           };
+
+          // Increment notes studied counter when viewing a note
+          incrementNotesStudied();
         } else {
           error.value = response.data?.error || 'Note not found';
         }
@@ -363,7 +369,14 @@ export default {
 
     const exportNote = async (format) => {
       if (!note.value || !note.value.id) {
-        alert('No note to export');
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Export Error',
+            message: 'No note to export',
+            icon: ['fas', 'exclamation-circle']
+          }
+        }));
         return;
       }
 
@@ -407,11 +420,25 @@ export default {
         window.URL.revokeObjectURL(url);
 
         console.log(`Note exported as ${format} successfully`);
-        alert(`File exported successfully! Check your downloads folder for "${filename}"`);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'success',
+            title: 'Export Successful',
+            message: `File exported successfully! Check your downloads folder for "${filename}"`,
+            icon: ['fas', 'check-circle']
+          }
+        }));
       } catch (error) {
         console.error('Export error:', error);
         console.error('Error details:', error.response || error.message);
-        alert(`Failed to export note as ${format.toUpperCase()}. Please try again. Error: ${error.message}`);
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Export Failed',
+            message: `Failed to export note as ${format.toUpperCase()}. Please try again. Error: ${error.message}`,
+            icon: ['fas', 'exclamation-circle']
+          }
+        }));
       }
     };
 
@@ -443,11 +470,25 @@ export default {
           } else {
             console.error('Failed to refresh note data:', noteResponse.data);
           }
-          alert('Summary generated successfully!');
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'success',
+              title: 'Summary Generated',
+              message: 'Summary generated successfully!',
+              icon: ['fas', 'check-circle']
+            }
+          }));
         } else {
           console.error('Summary generation failed:', response.data);
           const errorMessage = response.data?.error || response.data?.message || 'Unknown error';
-          alert('Failed to generate summary: ' + errorMessage);
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'error',
+              title: 'Summary Failed',
+              message: 'Failed to generate summary: ' + errorMessage,
+              icon: ['fas', 'exclamation-circle']
+            }
+          }));
         }
       } catch (error) {
         console.error('Error generating summary:', error);
@@ -483,6 +524,7 @@ export default {
         generatingSummary.value = false;
       }
     };
+
 
     // =====================================
     // STUDY SESSION FUNCTIONS
@@ -557,7 +599,8 @@ export default {
       formattedElapsedTime,
       isActiveSession,
       endStudySession,
-      onNoteScroll
+      onNoteScroll,
+      incrementNotesStudied
     };
   }
 }

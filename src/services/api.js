@@ -136,10 +136,17 @@ export default {
   },
   
   // Notes
-  getNotes() {
+  getNotes(searchQuery = null) {
     // Add cache-busting parameter to prevent browser caching
     const cacheBust = Date.now();
-    return api.get(`?resource=notes&_t=${cacheBust}`, {
+    let url = `?resource=notes&_t=${cacheBust}`;
+
+    // Add search parameter if provided
+    if (searchQuery && searchQuery.trim()) {
+      url += `&search=${encodeURIComponent(searchQuery.trim())}`;
+    }
+
+    return api.get(url, {
       headers: {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
@@ -194,6 +201,12 @@ export default {
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache'
       }
+    })
+  },
+  extractKeywords(noteId, options = {}) {
+    return api.post(`?resource=notes&action=extractKeywords&id=${noteId}`, {
+      count: options.count || 7,
+      types: options.types || ['topic', 'entity', 'concept']
     })
   },
   deleteNote(id) {

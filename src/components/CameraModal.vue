@@ -116,7 +116,7 @@
 
 <script>
 import { ref, watch, onMounted, onUnmounted } from 'vue';
-import Tesseract from 'tesseract.js';
+import api from '@/services/api';
 
 export default {
   name: 'CameraModal',
@@ -195,21 +195,34 @@ export default {
         const response = await fetch(capturedImage.value);
         const blob = await response.blob();
 
-        // Perform OCR
-        const { data: { text } } = await Tesseract.recognize(blob, 'eng', {
-          logger: () => {} // Disable logging
-        });
+        // Convert blob to file for FormData
+        const imageFile = new File([blob], 'camera-capture.jpg', { type: 'image/jpeg' });
 
-        if (text && text.trim()) {
-          // Emit the captured data
-          emit('photo-captured', {
-            type: 'camera',
-            originalText: text.trim(),
-            imageData: capturedImage.value
-          });
-          closeModal();
+        // Create FormData for backend OCR processing
+        const formData = new FormData();
+        formData.append('image', imageFile);
+
+        // Perform OCR using backend service
+        const ocrResponse = await api.ocr.processImage(formData);
+
+        if (ocrResponse.data.success) {
+          const ocrData = ocrResponse.data.data;
+
+          if (ocrData.text && ocrData.text.trim()) {
+            // Emit the captured data with OCR results
+            emit('photo-captured', {
+              type: 'camera',
+              originalText: ocrData.text.trim(),
+              imageData: capturedImage.value,
+              confidence: ocrData.confidence,
+              quality: ocrData.quality
+            });
+            closeModal();
+          } else {
+            error.value = 'No text was found in the image. Please try taking a clearer photo.';
+          }
         } else {
-          error.value = 'No text was found in the image. Please try taking a clearer photo.';
+          throw new Error(ocrResponse.data.error || 'OCR processing failed');
         }
       } catch (err) {
         console.error('Error processing image:', err);

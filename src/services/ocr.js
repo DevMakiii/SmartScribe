@@ -66,7 +66,7 @@ class OCRService {
   }
   
   /**
-   * Open the camera and take a photo
+   * Open the camera and take a photo optimized for OCR
    * @returns {Promise<Blob>} - The image blob
    */
   async takePhoto() {
@@ -77,40 +77,48 @@ class OCRService {
           if (!(await this.hasCamera())) {
             throw new Error('No camera detected on this device.');
           }
-        
+
         // Create video element
         const video = document.createElement('video');
         video.setAttribute('playsinline', '');
         video.setAttribute('autoplay', '');
         video.setAttribute('muted', '');
-        
-        // Get user media
+
+        // Get user media with higher resolution for OCR
         const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 }
+          }
         });
-        
+
         video.srcObject = stream;
-        
+
         // Wait for video to be ready
         video.onloadedmetadata = () => {
           video.play();
-          
-          // Create canvas to capture image
+
+          // Create canvas to capture and process image
           const canvas = document.createElement('canvas');
           canvas.width = video.videoWidth;
           canvas.height = video.videoHeight;
-          
-          // Draw video frame to canvas
+
           const context = canvas.getContext('2d');
+
+          // Apply OCR-optimized filters
+          context.filter = 'contrast(1.5) brightness(1.2) grayscale(1)';
+
+          // Draw video frame to canvas with filters applied
           context.drawImage(video, 0, 0, canvas.width, canvas.height);
-          
+
           // Stop all video streams
           stream.getTracks().forEach(track => track.stop());
-          
-          // Convert canvas to blob
+
+          // Convert canvas to blob with lossless PNG for better OCR
           canvas.toBlob(blob => {
             resolve(blob);
-          }, 'image/jpeg', 0.95);
+          }, 'image/png', 1.0); // PNG for lossless quality
         };
       } catch (error) {
         console.error('Camera access error:', error);

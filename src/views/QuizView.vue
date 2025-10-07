@@ -148,7 +148,7 @@
                       fontSizeClasses.label,
                       store.getters['app/getCurrentTheme'] === 'dark' ? 'text-gray-400' : 'text-gray-500'
                     ]">
-                      Created: {{ new Date(quiz.created_at).toLocaleDateString() }}
+                      Created: {{ new Date(quiz.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() }}
                     </p>
                     <div :class="[
                       'flex items-center',
@@ -395,7 +395,7 @@
                     fontSizeClasses.small,
                     store.getters['app/getCurrentTheme'] === 'dark' ? 'text-gray-400' : 'text-gray-500'
                   ]">
-                    Created: {{ new Date(note.created_at).toLocaleDateString() }}
+                    Created: {{ new Date(note.created_at.replace(' ', 'T') + 'Z').toLocaleDateString() }}
                   </div>
                 </div>
               </div>
@@ -477,7 +477,7 @@
               ]"
             >
               <font-awesome-icon
-                :icon="difficulty === 'easy' ? ['fas', 'smile'] : difficulty === 'medium' ? ['fas', 'meh'] : ['fas', 'frown']"
+                :icon="difficulty === 'easy' ? ['far', 'smile'] : difficulty === 'medium' ? ['far', 'meh'] : ['far', 'frown']"
                 class="mr-2"
               />
               {{ difficulty }}
@@ -536,7 +536,7 @@
               ]"
             >
               <font-awesome-icon
-                :icon="type === 'multiple_choice' ? ['fas', 'list'] : type === 'true_false' ? ['fas', 'check-circle'] : ['fas', 'random']"
+                :icon="type === 'multiple_choice' ? ['fas', 'list-ul'] : type === 'true_false' ? ['fas', 'check-circle'] : ['fas', 'dice']"
                 class="mr-3"
               />
               {{ type === 'multiple_choice' ? 'Multiple Choice' : type === 'true_false' ? 'True/False' : 'Mixed Questions' }}
@@ -883,7 +883,14 @@ export default {
 
     const generateQuizFromSelectedNotes = async () => {
       if (selectedNotes.value.length === 0) {
-        alert('Please select at least one note to generate a quiz from.')
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'No Notes Selected',
+            message: 'Please select at least one note to generate a quiz from.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }))
         return
       }
 
@@ -932,7 +939,14 @@ export default {
       }
 
       if (notesToUse.length === 0) {
-        alert('No notes available for quiz generation. Please create some notes first.')
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'No Notes Available',
+            message: 'No notes available for quiz generation. Please create some notes first.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }))
         return
       }
 
@@ -992,7 +1006,14 @@ export default {
         }
 
         if (!combinedContent || combinedContent.length < 50) {
-          alert('Not enough content available for quiz generation. Please ensure your selected notes have sufficient text content.')
+          window.dispatchEvent(new CustomEvent('show-toast', {
+            detail: {
+              type: 'warning',
+              title: 'Insufficient Content',
+              message: 'Not enough content available for quiz generation. Please ensure your selected notes have sufficient text content.',
+              icon: ['fas', 'exclamation-triangle']
+            }
+          }))
           return
         }
 
@@ -1213,7 +1234,14 @@ export default {
         }
       } catch (error) {
         console.error('Error generating quiz:', error)
-        alert('Failed to generate quiz. Please try again.')
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'error',
+            title: 'Generation Failed',
+            message: 'Failed to generate quiz. Please try again.',
+            icon: ['fas', 'exclamation-circle']
+          }
+        }))
       } finally {
         isGeneratingQuiz.value = false
         console.log('=== FRONTEND QUIZ GENERATION END ===')
@@ -1257,12 +1285,14 @@ export default {
       console.log('Completed quizzes:', completedQuizzes.length)
       console.log('Not taken quizzes:', notTakenQuizzes.length)
 
-      alert(`Debug Info:
-Total Quizzes: ${savedQuizzes.value.length}
-Completed: ${completedQuizzes.length}
-Not Taken: ${notTakenQuizzes.length}
-
-Check console for detailed quiz data.`)
+      window.dispatchEvent(new CustomEvent('show-toast', {
+        detail: {
+          type: 'info',
+          title: 'Debug Info',
+          message: `Total Quizzes: ${savedQuizzes.value.length}, Completed: ${completedQuizzes.length}, Not Taken: ${notTakenQuizzes.length}. Check console for details.`,
+          icon: ['fas', 'info-circle']
+        }
+      }))
     }
 
     const loadSavedQuizzes = async () => {
@@ -1429,13 +1459,13 @@ Check console for detailed quiz data.`)
         if (response.data.success) {
           // Remove the quiz from the local list
           savedQuizzes.value = savedQuizzes.value.filter(quiz => quiz.id !== quizId)
-          alert('Quiz deleted successfully!')
+          showSuccess('Quiz Deleted', 'The quiz has been successfully deleted.')
         } else {
-          alert('Failed to delete quiz: ' + (response.data.error || 'Unknown error'))
+          showWarning('Delete Failed', 'Failed to delete quiz: ' + (response.data.error || 'Unknown error'))
         }
       } catch (error) {
         console.error('Error deleting quiz:', error)
-        alert('Failed to delete quiz. Please try again.')
+        showWarning('Delete Failed', 'Failed to delete quiz. Please try again.')
       }
     }
 

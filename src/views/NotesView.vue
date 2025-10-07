@@ -17,6 +17,7 @@
               <input
                 type="text"
                 placeholder="Search notes..."
+                v-model="searchQuery"
                 :class="themeClasses.input"
                 class="pl-10 pr-4 py-2 rounded-md focus:outline-none"
               />
@@ -149,17 +150,9 @@
                       @click.stop
                     >
                       <button
-                        @click="editNote(note.id)"
-                        :class="themeClasses.hover"
-                        class="w-full text-left px-3 py-2 text-sm rounded-t-md flex items-center space-x-2"
-                      >
-                        <font-awesome-icon :icon="['fas', 'edit']" class="text-xs" />
-                        <span :class="themeClasses.text">Edit</span>
-                      </button>
-                      <button
                         @click="duplicateNote(note.id)"
                         :class="themeClasses.hover"
-                        class="w-full text-left px-3 py-2 text-sm flex items-center space-x-2"
+                        class="w-full text-left px-3 py-2 text-sm rounded-t-md flex items-center space-x-2"
                       >
                         <font-awesome-icon :icon="['fas', 'copy']" class="text-xs" />
                         <span :class="themeClasses.text">Duplicate</span>
@@ -176,7 +169,12 @@
                 </div>
               </div>
               <p :class="themeClasses.secondaryText" class="text-sm mb-2">
-                {{ activeFilter === 'recent' && (Date.now() - note.timestamp) < 604800000 ? getTimeAgo(note.createdAt) : note.date }}
+                <span v-if="activeFilter === 'recent' && (Date.now() - note.timestamp) < 604800000">
+                  {{ getTimeAgo(note.createdAt) }} • {{ getWordCount(note.original_text) }} words
+                </span>
+                <span v-else>
+                  {{ note.date }}
+                </span>
               </p>
               <p :class="themeClasses.secondaryText" class="text-sm line-clamp-3 mb-3">{{ note.original_text }}</p>
               <div class="flex flex-wrap gap-2">
@@ -420,6 +418,7 @@ export default {
     const isConnected = ref(true);
     const connectionStatus = ref('connected');
     const lastSync = ref(new Date());
+    const searchQuery = ref('');
 
     // =====================================
     // UI STATE
@@ -458,9 +457,9 @@ export default {
           id: note.id,
           title: note.title || 'Untitled Note',
           original_text: note.original_text || '',
-          date: new Date(note.created_at).toLocaleDateString(),
-          createdAt: new Date(note.created_at), // Keep original Date object for sorting
-          timestamp: new Date(note.created_at).getTime(), // Timestamp for precise sorting
+          date: new Date(note.created_at.replace(' ', 'T') + 'Z').toLocaleDateString(),
+          createdAt: new Date(note.created_at.replace(' ', 'T') + 'Z'), // Keep original Date object for sorting
+          timestamp: new Date(note.created_at.replace(' ', 'T') + 'Z').getTime(), // Timestamp for precise sorting
           isFavorite: processedFavorite, // Properly convert to boolean
           _lastUpdated: note._lastUpdated || 0, // Preserve the update timestamp
           tags: [] // You can add tags logic here
@@ -508,6 +507,14 @@ export default {
       if (diffInSeconds < 604800) return `${Math.floor(diffInSeconds / 86400)} days ago`;
 
       return date.toLocaleDateString();
+    };
+
+    // Calculate word count from text
+    const getWordCount = (text) => {
+      if (!text) return 0;
+      // Use word boundary regex to accurately count words
+      const words = text.match(/\b\w+\b/g);
+      return words ? words.length : 0;
     };
 
     // Handle image loading errors
@@ -585,8 +592,8 @@ export default {
           return;
         }
 
-        console.log('🚀 Making API call to getNotes...');
-        const response = await api.getNotes();
+        console.log('🚀 Making API call to getNotes with search:', searchQuery.value);
+        const response = await api.getNotes(searchQuery.value);
         console.log('📡 API call completed. Response status:', response.status);
         console.log('📡 Response headers:', response.headers);
         console.log('📡 Response data type:', typeof response.data);
@@ -689,6 +696,21 @@ export default {
           }
         }
       }
+    });
+
+    // Watch for search query changes with debouncing
+    let searchTimeout = null;
+    watch(searchQuery, (newQuery) => {
+      // Clear existing timeout
+      if (searchTimeout) {
+        clearTimeout(searchTimeout);
+      }
+
+      // Set new timeout for debounced search
+      searchTimeout = setTimeout(async () => {
+        console.log('🔍 Search query changed, fetching notes with search:', newQuery);
+        await fetchNotes();
+      }, 300); // 300ms debounce
     });
 
     const viewNote = (noteId) => {
@@ -922,6 +944,7 @@ export default {
       showProfileModal,
       filteredNotes,
       notesError,
+      searchQuery,
 
       // Loading states
       loadingNotes,
@@ -949,6 +972,7 @@ export default {
       handleImageError,
       handleImageLoad,
       getTimeAgo,
+      getWordCount,
 
       // User menu functions
       toggleUserMenu,

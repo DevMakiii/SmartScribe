@@ -1,5 +1,5 @@
   <template>
-  <div class="min-h-screen flex flex-col">
+  <div class="min-h-screen flex flex-col bg-gray-900 text-white overflow-x-hidden">
   <!-- Main Content -->
     <main class="flex-grow flex items-center justify-center px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
       <div class="bg-gray-800 rounded-2xl shadow-2xl p-8 sm:p-10 w-full max-w-md border border-gray-700">
@@ -327,7 +327,14 @@ export default {
         errorMessage.value = '';
 
         // Facebook signup is not currently implemented
-        alert('Facebook signup is not currently supported. Please use email/password registration.');
+        window.dispatchEvent(new CustomEvent('show-toast', {
+          detail: {
+            type: 'warning',
+            title: 'Feature Not Available',
+            message: 'Facebook signup is not currently supported. Please use email/password registration.',
+            icon: ['fas', 'exclamation-triangle']
+          }
+        }));
 
       } catch (error) {
         console.error('❌ Facebook signup failed:', error);
