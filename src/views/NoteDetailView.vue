@@ -8,18 +8,19 @@
         </div>
         
         <div v-else-if="note && !error">
-          <div class="flex flex-col justify-between items-start mb-6 space-y-4" style="flex-direction: column !important;">
-            <div>
+          <!-- Header Section -->
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+            <div class="flex-1">
               <h1 :class="`${themeClasses.text} font-bold ${fontSizeClasses.heading}`">{{ note.title }}</h1>
               <p :class="`${themeClasses.tertiaryText} ${fontSizeClasses.label}`">Last edited: {{ note.lastEdited }}</p>
             </div>
-            <div class="flex space-x-2 sm:space-x-3 w-full sm:w-auto">
-              <button @click="editNote" class="flex-1 sm:flex-none px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base bg-blue-600 rounded-md hover:bg-blue-700 transition">
+            <div class="flex space-x-2 sm:space-x-3">
+              <button @click="editNote" class="px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base bg-blue-600 rounded-md hover:bg-blue-700 transition">
                 <font-awesome-icon :icon="['fas', 'edit']" class="mr-2" /> Edit
               </button>
-              <button @click="showExportOptions = !showExportOptions" :class="`flex-1 sm:flex-none px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base ${themeClasses.button} rounded-md transition relative`">
+              <button @click="showExportOptions = !showExportOptions" :class="`px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base ${themeClasses.button} rounded-md transition relative`">
                 <font-awesome-icon :icon="['fas', 'file-export']" class="mr-2" /> Export
-                
+
                 <!-- Export Options Dropdown -->
                 <div v-if="showExportOptions" :class="`absolute right-0 mt-2 w-48 sm:w-56 ${themeClasses.card} rounded-md shadow-lg py-1 z-10 max-w-full`">
                   <button @click="exportNote('pdf')" :class="`block w-full text-left px-4 py-2 ${themeClasses.hover}`">
@@ -37,7 +38,7 @@
           </div>
 
           <!-- Study Time Tracker -->
-          <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6 mb-6`">
+          <div :class="`${themeClasses.card} rounded-lg p-4 mb-6`">
             <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
               <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">Study Session</h2>
               <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
@@ -54,7 +55,7 @@
                 </div>
               </div>
             </div>
-            <div v-if="isActiveSession" class="bg-green-900 border border-green-700 rounded-lg p-3 mb-4">
+            <div v-if="isActiveSession" class="bg-green-900 border border-green-700 rounded-lg p-3">
               <div class="flex items-center space-x-2 text-sm text-green-300">
                 <font-awesome-icon :icon="['far', 'circle']" class="text-green-400 animate-pulse" />
                 <span>Study session active - Tracking your reading time</span>
@@ -62,45 +63,85 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 gap-4 sm:gap-6 mb-6" style="grid-template-columns: 1fr;">
-            <!-- Original Text -->
+          <!-- Mode Selector -->
+          <div class="flex justify-center mb-6">
+            <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                :class="`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  activeMode === 'summary' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`"
+                @click="activeMode = 'summary'"
+              >
+                Summary
+              </button>
+              <button
+                :class="`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  activeMode === 'keywords' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`"
+                @click="activeMode = 'keywords'"
+              >
+                Keywords
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Content Area -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Left Panel: Original Text -->
             <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
-              <h2 :class="`${themeClasses.text} font-semibold mb-4 ${fontSizeClasses.body}`">Original Text</h2>
+              <div class="flex justify-between items-center mb-4">
+                <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">Original Text</h2>
+                <div class="flex space-x-2" v-if="activeMode === 'summary'">
+                  <button
+                    @click="generateSummary"
+                    :disabled="isGeneratingSummary"
+                    :class="`px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed`"
+                  >
+                    <font-awesome-icon :icon="['fas', 'sync-alt']" :spin="generatingSummary" class="mr-1" />
+                    {{ generatingSummary ? 'Generating...' : 'Generate' }}
+                  </button>
+                </div>
+              </div>
               <div
-                :class="`${themeClasses.input} rounded-lg p-3 sm:p-4 ${themeClasses.text} h-64 sm:h-96 overflow-y-auto overflow-x-hidden text-sm sm:text-base break-words`"
+                :class="`${themeClasses.input} rounded-lg p-4 ${themeClasses.text} h-80 lg:h-96 overflow-y-auto text-sm sm:text-base break-words`"
                 @scroll="onNoteScroll"
               >
                 {{ note.originalText }}
               </div>
             </div>
 
-            <!-- AI Summary -->
-              <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
-                <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4 space-y-2 sm:space-y-0">
-                  <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">AI Summary</h2>
-                  <div class="flex flex-col sm:flex-row space-y-2 sm:space-y-0 sm:space-x-2 w-full sm:w-auto">
-                    <button @click="generateSummary" class="flex-1 sm:flex-none px-3 py-2 sm:px-3 sm:py-1 bg-blue-600 rounded text-sm hover:bg-blue-700 transition" :disabled="isGeneratingSummary">
-                      <font-awesome-icon :icon="['fas', 'sync-alt']" class="mr-1" :spin="generatingSummary" /> {{ generatingSummary ? 'Generating...' : 'Generate Summary' }}
-                    </button>
-                  </div>
+            <!-- Right Panel: AI Output -->
+            <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
+              <div class="flex justify-between items-center mb-4">
+                <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">
+                  {{ activeMode === 'summary' ? 'AI Summary' : 'Keywords & Tags' }}
+                </h2>
+                <div class="flex space-x-2" v-if="activeMode === 'summary'">
+                  <button title="Copy to Clipboard" :class="`p-2 ${themeClasses.button} rounded-md hover:bg-gray-600 transition`">
+                    <font-awesome-icon :icon="['fas', 'copy']" class="text-sm" />
+                  </button>
                 </div>
-              <div :class="`${themeClasses.input} rounded-lg p-3 sm:p-4 ${themeClasses.text} h-64 sm:h-96 overflow-y-auto overflow-x-hidden text-sm sm:text-base break-words whitespace-pre-line`">
-                {{ note.summary || 'No summary available. Click "Generate Summary" to create one.' }}
               </div>
-            </div>
-          </div>
 
-          <!-- Keywords and Tags -->
-          <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6 mb-6`">
-            <h2 :class="`${themeClasses.text} font-semibold mb-4 ${fontSizeClasses.body}`">Keywords & Tags</h2>
-            <div class="flex flex-wrap gap-2">
-              <span
-                v-for="(keyword, index) in note.keywords"
-                :key="`keyword-${index}`"
-                class="px-2 py-1 sm:px-3 sm:py-1 bg-blue-600 rounded-full text-xs sm:text-sm"
-              >
-                {{ keyword }}
-              </span>
+              <!-- Summary Mode -->
+              <div v-if="activeMode === 'summary'">
+                <div :class="`${themeClasses.input} rounded-lg p-4 ${themeClasses.text} h-80 lg:h-96 overflow-y-auto text-sm sm:text-base break-words whitespace-pre-line`">
+                  {{ note.summary || 'No summary available. Click "Generate Summary" to create one.' }}
+                </div>
+              </div>
+
+              <!-- Keywords Mode -->
+              <div v-else class="space-y-4">
+                <div class="flex flex-wrap gap-2 min-h-80 lg:min-h-96 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                  <span
+                    v-for="(keyword, index) in note.keywords"
+                    :key="`keyword-${index}`"
+                    class="px-3 py-1 bg-blue-600 text-white rounded-full text-sm"
+                  >
+                    {{ keyword }}
+                  </span>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -193,6 +234,7 @@ export default {
     const generatingSummary = ref(false);
     const sidebarOpen = ref(false);
     const showUserMenu = ref(false);
+    const activeMode = ref('summary');
 
     // Computed property to safely access generatingSummary state
     const isGeneratingSummary = computed(() => generatingSummary.value);
@@ -567,6 +609,7 @@ export default {
       sidebarOpen,
       themeClasses,
       fontSizeClasses,
+      activeMode,
       sidebarVisible,
       showUserMenu,
       editNote,

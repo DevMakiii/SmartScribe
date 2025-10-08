@@ -32,25 +32,24 @@
         </div>
 
         <div v-else>
-          <div class="flex flex-col justify-between items-start mb-6 space-y-4" style="flex-direction: column !important;">
-            <div class="w-full sm:w-auto flex-1">
-              <div class="flex items-center space-x-3 mb-2">
-                <h1 class="text-xl sm:text-2xl font-bold flex-1">
-                  <input
-                    v-model="note.title"
-                    :class="`bg-transparent ${themeClasses.border} focus:border-blue-500 focus:outline-none pb-1 w-full ${fontSizeClasses.heading} ${themeClasses.text}`"
-                    placeholder="Note Title"
-                  />
-                </h1>
-              </div>
+          <!-- Header Section -->
+          <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 space-y-4 sm:space-y-0">
+            <div class="flex-1">
+              <h1 class="text-xl sm:text-2xl font-bold mb-2">
+                <input
+                  v-model="note.title"
+                  :class="`bg-transparent ${themeClasses.border} focus:border-blue-500 focus:outline-none pb-1 w-full ${fontSizeClasses.heading} ${themeClasses.text}`"
+                  placeholder="Note Title"
+                />
+              </h1>
               <p :class="`${themeClasses.tertiaryText} ${fontSizeClasses.label}`">Last edited: {{ note.lastEdited }}</p>
             </div>
-            <div class="flex space-x-2 sm:space-x-3 w-full sm:w-auto">
-              <button @click="saveNote" :disabled="isSaving" class="flex-1 sm:flex-none px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base bg-blue-600 rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
+            <div class="flex space-x-2 sm:space-x-3">
+              <button @click="saveNote" :disabled="isSaving" class="px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base bg-blue-600 rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed">
                 <font-awesome-icon :icon="isSaving ? ['fas', 'spinner'] : ['fas', 'save']" :spin="isSaving" class="mr-2" />
                 {{ isSaving ? 'Saving...' : 'Save' }}
               </button>
-              <button @click="showExportOptions = !showExportOptions" :class="`flex-1 sm:flex-none px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base ${themeClasses.button} rounded-md transition relative`">
+              <button @click="showExportOptions = !showExportOptions" :class="`px-3 py-2 sm:px-4 sm:py-2 text-sm sm:text-base ${themeClasses.button} rounded-md transition relative`">
                 <font-awesome-icon :icon="['fas', 'file-export']" class="mr-2" /> Export
 
                 <!-- Export Options Dropdown -->
@@ -69,93 +68,134 @@
             </div>
           </div>
 
-        <div class="grid grid-cols-1 gap-4 sm:gap-6" style="grid-template-columns: 1fr;">
-          <!-- Original Text (OCR Result) -->
-          <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
-            <h2 :class="`${themeClasses.text} font-semibold mb-4 ${fontSizeClasses.body}`">Original Text</h2>
-            <div class="relative">
-              <textarea
-                v-model="note.originalText"
-                :class="`w-full h-64 sm:h-96 ${themeClasses.input} rounded-lg p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base overflow-x-hidden resize-none`"
-                placeholder="OCR extracted text will appear here"
-              ></textarea>
-              <div class="absolute top-2 right-2 flex space-x-2">
-                <button title="Edit Original Text" :class="`p-1 ${themeClasses.button} rounded`">
-                  <font-awesome-icon :icon="['fas', 'edit']" class="text-xs sm:text-sm" />
-                </button>
-                <button title="Rescan" :class="`p-1 ${themeClasses.button} rounded`">
-                  <font-awesome-icon :icon="['fas', 'camera']" class="text-xs sm:text-sm" />
-                </button>
-              </div>
-            </div>
-
-          </div>
-
-          <!-- AI Generated Summary -->
-          <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
-            <div class="flex flex-col justify-between items-start mb-4 space-y-2" style="flex-direction: column !important;">
-              <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">AI Summary</h2>
-              <div class="flex items-center space-x-2 w-full sm:w-auto">
-                <span :class="`${themeClasses.tertiaryText} text-xs sm:text-sm`">Length:</span>
+          <!-- Options Panel -->
+          <div v-if="activeMode === 'summary'" :class="`${themeClasses.card} rounded-lg p-4 mb-6`">
+            <div class="flex flex-wrap items-center gap-4">
+              <div class="flex items-center space-x-2">
+                <span :class="`${themeClasses.text} text-sm font-medium`">Length:</span>
                 <select
                   v-model="summaryLength"
-                  :class="`${themeClasses.input} rounded px-2 py-1 sm:p-1 text-xs sm:text-sm flex-1 sm:flex-none`"
+                  :class="`${themeClasses.input} rounded px-3 py-1 text-sm`"
                 >
                   <option value="auto">Auto</option>
                   <option value="short">Short</option>
                   <option value="medium">Medium</option>
                   <option value="long">Long</option>
                 </select>
+              </div>
+              <div class="flex items-center space-x-2">
+                <span :class="`${themeClasses.text} text-sm font-medium`">Format:</span>
                 <select
                   v-model="summaryFormat"
-                  :class="`${themeClasses.input} rounded px-2 py-1 sm:p-1 text-xs sm:text-sm flex-1 sm:flex-none ml-2`"
+                  :class="`${themeClasses.input} rounded px-3 py-1 text-sm`"
                 >
                   <option value="paragraph">Paragraph</option>
                   <option value="bullet_points">Bullet Points</option>
                 </select>
               </div>
             </div>
-            <div class="relative">
+          </div>
+
+          <!-- Mode Selector -->
+          <div class="flex justify-center mb-6">
+            <div class="flex bg-gray-100 dark:bg-gray-800 rounded-lg p-1">
+              <button
+                :class="`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  activeMode === 'summary' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`"
+                @click="activeMode = 'summary'"
+              >
+                Summary
+              </button>
+              <button
+                :class="`px-4 py-2 rounded-md text-sm font-medium transition ${
+                  activeMode === 'keywords' ? 'bg-blue-600 text-white' : 'text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                }`"
+                @click="activeMode = 'keywords'"
+              >
+                Keywords
+              </button>
+            </div>
+          </div>
+
+          <!-- Main Content Area -->
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+            <!-- Left Panel: Original Text -->
+            <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
+              <div class="flex justify-between items-center mb-4">
+                <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">Original Text</h2>
+                <div class="flex space-x-2">
+                  <button
+                    v-if="activeMode === 'summary'"
+                    @click="generateSummary"
+                    :disabled="generatingSummary"
+                    :class="`px-3 py-1 text-sm bg-green-600 text-white rounded-md hover:bg-green-700 transition disabled:opacity-50 disabled:cursor-not-allowed`"
+                  >
+                    <font-awesome-icon :icon="['fas', 'sync-alt']" :spin="generatingSummary" class="mr-1" />
+                    {{ generatingSummary ? 'Generating...' : 'Generate' }}
+                  </button>
+                  <button title="Edit Original Text" :class="`p-2 ${themeClasses.button} rounded-md hover:bg-gray-600 transition`">
+                    <font-awesome-icon :icon="['fas', 'edit']" class="text-sm" />
+                  </button>
+                  <button title="Rescan" :class="`p-2 ${themeClasses.button} rounded-md hover:bg-gray-600 transition`">
+                    <font-awesome-icon :icon="['fas', 'camera']" class="text-sm" />
+                  </button>
+                </div>
+              </div>
               <textarea
-                v-model="note.summary"
-                :class="`w-full h-64 sm:h-96 ${themeClasses.input} rounded-lg p-3 sm:p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base overflow-x-hidden resize-none whitespace-pre-line`"
-                placeholder="AI-generated summary will appear here"
-                style="white-space: pre-line;"
+                v-model="note.originalText"
+                :class="`w-full h-80 lg:h-96 ${themeClasses.input} rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base resize-none`"
+                placeholder="Enter or paste your text here..."
               ></textarea>
-              <div class="absolute top-2 right-2 flex space-x-2">
-                <button @click="generateSummary" :disabled="generatingSummary" title="Regenerate Summary" :class="`p-1 ${themeClasses.button} rounded disabled:opacity-50 disabled:cursor-not-allowed`">
-                  <font-awesome-icon :icon="['fas', 'sync-alt']" class="text-xs sm:text-sm" :spin="generatingSummary" />
-                </button>
-                <button title="Copy to Clipboard" :class="`p-1 ${themeClasses.button} rounded`">
-                  <font-awesome-icon :icon="['fas', 'copy']" class="text-xs sm:text-sm" />
-                </button>
+            </div>
+
+            <!-- Right Panel: AI Output -->
+            <div :class="`${themeClasses.card} rounded-lg p-4 sm:p-6`">
+              <div class="flex justify-between items-center mb-4">
+                <h2 :class="`${themeClasses.text} font-semibold ${fontSizeClasses.body}`">
+                  {{ activeMode === 'summary' ? 'AI Summary' : 'Keywords & Tags' }}
+                </h2>
+                <div class="flex space-x-2">
+                  <button title="Copy to Clipboard" :class="`p-2 ${themeClasses.button} rounded-md hover:bg-gray-600 transition`">
+                    <font-awesome-icon :icon="['fas', 'copy']" class="text-sm" />
+                  </button>
+                </div>
+              </div>
+
+              <!-- Summary Mode -->
+              <div v-if="activeMode === 'summary'">
+                <textarea
+                  v-model="note.summary"
+                  :class="`w-full h-80 lg:h-96 ${themeClasses.input} rounded-lg p-4 focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm sm:text-base resize-none whitespace-pre-line`"
+                  placeholder="AI-generated summary will appear here..."
+                  readonly
+                ></textarea>
+              </div>
+
+              <!-- Keywords Mode -->
+              <div v-else class="space-y-4">
+                <div class="flex flex-wrap gap-2 min-h-80 lg:min-h-96 p-4 border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-lg">
+                  <span
+                    v-for="(keyword, index) in note.keywords"
+                    :key="`keyword-${index}`"
+                    class="px-3 py-1 bg-blue-600 text-white rounded-full text-sm flex items-center"
+                  >
+                    {{ keyword }}
+                    <button @click="removeKeyword(index)" class="ml-2 text-xs hover:text-red-300">
+                      <font-awesome-icon :icon="['fas', 'times']" />
+                    </button>
+                  </span>
+                  <input
+                    v-model="newKeyword"
+                    @keyup.enter="addKeyword"
+                    :class="`px-3 py-1 ${themeClasses.input} rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0`"
+                    placeholder="Add keyword..."
+                  />
+                </div>
               </div>
             </div>
           </div>
-        </div>
 
-        <!-- Keywords and Tags -->
-        <div :class="`mt-6 ${themeClasses.card} rounded-lg p-4 sm:p-6`">
-          <h2 :class="`${themeClasses.text} font-semibold mb-4 ${fontSizeClasses.body}`">Keywords & Tags</h2>
-          <div class="flex flex-wrap gap-2 mb-4">
-            <span
-              v-for="(keyword, index) in note.keywords"
-              :key="`keyword-${index}`"
-              class="px-2 py-1 sm:px-3 sm:py-1 bg-blue-600 rounded-full text-xs sm:text-sm flex items-center"
-            >
-              {{ keyword }}
-              <button @click="removeKeyword(index)" class="ml-1 sm:ml-2 text-xs">
-                <font-awesome-icon :icon="['fas', 'times']" />
-              </button>
-            </span>
-            <input
-              v-model="newKeyword"
-              @keyup.enter="addKeyword"
-              :class="`px-2 py-1 sm:px-3 sm:py-1 ${themeClasses.input} rounded-full text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-0`"
-              placeholder="Add keyword..."
-            />
-          </div>
-        </div>
         </div>
       </main>
 
@@ -208,6 +248,7 @@ export default {
      const showExportOptions = ref(false);
      const sidebarOpen = ref(false);
      const showCameraModal = ref(false);
+     const activeMode = ref('summary');
 
      // Use global theme classes from store
      const themeClasses = computed(() => {
@@ -778,6 +819,7 @@ export default {
       sidebarOpen,
       themeClasses,
       fontSizeClasses,
+      activeMode,
       saveNote,
       generateSummary,
       addKeyword,
